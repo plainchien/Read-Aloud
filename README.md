@@ -22,9 +22,18 @@ npm run dev
 - 中文翻译（MyMemory API）
 - 倍速调节 0.5×～1.25×，音频缓存减少重复请求
 
-## MiniMax TTS 配置
+## 部署到 Vercel（API Key 安全）
 
-1. 在 MiniMax 开放平台获取 API Key
-2. 编辑 `src/lib/minimaxTts.ts`，替换 `MINIMAX_API_KEY`
-3. 用量超限时自动切换为 Web Speech API
+TTS 通过 Serverless 代理调用 MiniMax，API Key 不暴露给前端。
+
+1. 在 Vercel 项目 **Settings → Environment Variables** 添加：
+   - **Name**: `MINIMAX_API_KEY`
+   - **Value**: 你的 MiniMax API Key
+   - **Environment**: Production、Preview、Development 全选
+
+2. 部署后 `/api/tts` 会转发请求到 MiniMax，前端只调用该代理
+
+3. 本地开发：
+   - **推荐**：`vercel dev` 同时启动前端和 API
+   - 或 `VITE_API_BASE=https://你的项目.vercel.app npm run dev`，将 /api 代理到线上
   

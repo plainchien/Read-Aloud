@@ -22,5 +22,9 @@ export default defineConfig({
   server: {
     port: 5173,
     // Run with: npm run dev -- --host   (to access from mobile on same WiFi)
+    // 本地开发时代理 /api 到已部署的 Vercel（需设置 VITE_API_BASE），或使用 vercel dev
+    proxy: process.env.VITE_API_BASE
+      ? { "/api": { target: process.env.VITE_API_BASE, changeOrigin: true } }
+      : undefined,
   },
 })

@@ -1,10 +1,10 @@
 /**
  * TTS 语音合成模块
- * 封装 MiniMax API，支持 IndexedDB 缓存、错误处理与日志
+ * 通过 Vercel Serverless 代理调用 MiniMax，API Key 不暴露给前端
  */
 
-const MINIMAX_API_KEY = "sk-api-ybkg85hDvglsVIwnc7f3o-pw2HXYOVOaUKb6bJgpfkU7ZdlS_vV2HdeWzMblLTkv5Y6qRsCg4iiFm0No1-w2yy3tdhCLn-XC7WASZJkCK29G9id83i9bWEY";
-const T2A_URL = "https://api.minimaxi.com/v1/t2a_v2";
+// 通过 Vercel Serverless 代理，API Key 仅在服务端
+const TTS_API_URL = "/api/tts";
 const DB_NAME = "ReadAloudTTS";
 const DB_STORE = "audio";
 const DB_VERSION = 1;
@@ -181,34 +181,12 @@ async function fetchFromAPI(
   vol: number,
   pitch: number
 ): Promise<string> {
-  log("info", "调用 MiniMax API", { text: text.slice(0, 50) + "..." });
+  log("info", "调用 TTS 代理", { text: text.slice(0, 50) + "..." });
 
-  const res = await fetch(T2A_URL, {
+  const res = await fetch(TTS_API_URL, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${MINIMAX_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: "speech-2.6-hd",
-      text,
-      stream: false,
-      output_format: "hex",
-      voice_setting: {
-        voice_id: voiceId,
-        speed: 1,
-        vol,
-        pitch,
-      },
-      audio_setting: {
-        sample_rate: 32000,
-        bitrate: 128000,
-        format: "mp3",
-        channel: 1,
-      },
-      pronunciation_dict: { tone: [] },
-      subtitle_enable: false,
-    }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, voice_id: voiceId, vol, pitch }),
   });
 
   let data: Record<string, unknown>;
@@ -219,22 +197,19 @@ async function fetchFromAPI(
     throw new Error("API 响应解析失败");
   }
 
-  const baseResp = (data?.base_resp as { status_code?: number; status_msg?: string }) || {};
-  const statusCode = baseResp.status_code;
-
-  if (statusCode === 1002 || statusCode === 1039) {
-    ttsDisabled = true;
-    log("warn", "MiniMax 用量超限，已禁用");
-    throw new Error("MINIMAX_QUOTA");
+  if (!res.ok) {
+    const err = data?.error as string | undefined;
+    const msg = (data?.message as string) || res.statusText;
+    if (err === "MINIMAX_QUOTA") {
+      ttsDisabled = true;
+      log("warn", "MiniMax 用量超限，已禁用");
+    } else {
+      log("error", "TTS 代理错误", { status: res.status, msg });
+    }
+    throw new Error(err || msg);
   }
 
-  if (statusCode !== 0) {
-    const msg = baseResp.status_msg || `错误码 ${statusCode}`;
-    log("error", "MiniMax API 错误", { statusCode, msg });
-    throw new Error(msg);
-  }
-
-  const audioHex = (data as { data?: { audio?: string } })?.data?.audio;
+  const audioHex = data?.hex;
   if (!audioHex || typeof audioHex !== "string") {
     log("error", "未获取到音频数据");
     throw new Error("未获取到音频数据");
@@ -254,10 +229,6 @@ export async function speak(text: string, options: SpeakOptions = {}): Promise<v
 
   if (ttsDisabled) {
     throw new Error("MINIMAX_DISABLED");
-  }
-
-  if (!MINIMAX_API_KEY) {
-    throw new Error("请配置 MiniMax API Key");
   }
 
   const opts = { ...DEFAULT_OPTIONS, ...options };
