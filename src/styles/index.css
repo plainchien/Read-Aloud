@@ -1,0 +1,27 @@
+@import './fonts.css';
+@import './tailwind.css';
+@import './theme.css';
+
+/* Mobile-first responsive & touch optimizations */
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  margin: 0;
+  padding: 0;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* Responsive breakpoints: sm 640px, md 768px */
+@media (min-width: 640px) {
+  :root { --container-padding: 1.25rem; }
+}
+@media (min-width: 768px) {
+  :root { --container-padding: 1.5rem; }
+}
