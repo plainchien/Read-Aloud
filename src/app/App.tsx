@@ -23,6 +23,9 @@ const SAMPLE_TEXTS = [
 
 const SPEEDS = [0.75, 1, 1.5];
 
+/** 临时关闭 MiniMax，true 时使用 MiniMax，false 时仅用 Web Speech */
+const USE_MINIMAX = false;
+
 interface Token {
   token: string;
   isWord: boolean;
@@ -168,7 +171,7 @@ export default function App() {
       window.speechSynthesis.speak(utt);
     };
 
-    if (!isTtsDisabled()) {
+    if (USE_MINIMAX && !isTtsDisabled()) {
       try {
         await speak(processedText, { speed });
         setSpeaking(false);
