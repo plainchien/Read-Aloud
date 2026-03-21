@@ -127,6 +127,16 @@ export default function App() {
       return;
     }
 
+    // 在用户点击的同步上下文中解锁音频，避免浏览器自动播放策略拦截
+    if (typeof window !== "undefined") {
+      const w = window as Window & { __ttsUnlocked?: boolean };
+      if (!w.__ttsUnlocked) {
+        w.__ttsUnlocked = true;
+        const silent = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
+        silent.play().catch(() => {});
+      }
+    }
+
     clearRestartTimeout();
     ttsStop();
     window.speechSynthesis?.cancel();
