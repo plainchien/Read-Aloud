@@ -189,6 +189,13 @@ async function fetchFromAPI(
     body: JSON.stringify({ text, voice_id: voiceId, vol, pitch }),
   });
 
+  // 429（限流/用量超限）静默切换 Web Speech，用户无感知
+  if (res.status === 429) {
+    ttsDisabled = true;
+    log("warn", "TTS 限流或用量超限，自动切换 Web Speech");
+    throw new Error("MINIMAX_QUOTA");
+  }
+
   let data: Record<string, unknown>;
   try {
     data = await res.json();
