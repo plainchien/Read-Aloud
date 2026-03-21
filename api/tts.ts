@@ -1,6 +1,6 @@
 /**
  * TTS 代理 API：将 MiniMax 请求转发到服务端，避免 API Key 暴露
- * 环境变量：MINIMAX_API_KEY
+ * 环境变量：MINIMAX_API_KEY, MINIMAX_ENABLED（可选，设为 "true" 启用，否则不调用 API）
  */
 
 const T2A_URL = "https://api.minimaxi.com/v1/t2a_v2";
@@ -13,6 +13,10 @@ export default async function handler(
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  if (process.env.MINIMAX_ENABLED !== "true") {
+    return res.status(503).json({ error: "MINIMAX_DISABLED", message: "TTS 已暂停" });
   }
 
   const apiKey = process.env.MINIMAX_API_KEY;
