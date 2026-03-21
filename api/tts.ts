@@ -4,6 +4,7 @@
  */
 
 const T2A_URL = "https://api.minimaxi.com/v1/t2a_v2";
+const MAX_TEXT_LENGTH = 5000;
 
 export default async function handler(
   req: { method?: string; body?: Record<string, unknown> },
@@ -25,6 +26,10 @@ export default async function handler(
 
   if (!text) {
     return res.status(400).json({ error: "缺少 text 参数" });
+  }
+
+  if (text.length > MAX_TEXT_LENGTH) {
+    return res.status(400).json({ error: "文本过长", message: `最大 ${MAX_TEXT_LENGTH} 字符` });
   }
 
   const voiceId = body.voice_id ?? "English_Gentle-voiced_man";
