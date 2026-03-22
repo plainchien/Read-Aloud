@@ -23,8 +23,7 @@ const SAMPLE_TEXTS = [
 
 const SPEEDS = [0.75, 1, 1.5];
 
-/** 临时关闭 MiniMax，true 时使用 MiniMax，false 时仅用 Web Speech */
-const USE_MINIMAX = false;
+/** Qwen TTS 为主，失败时自动切换 Web Speech 兜底 */
 
 interface Token {
   token: string;
@@ -171,7 +170,7 @@ export default function App() {
       window.speechSynthesis.speak(utt);
     };
 
-    if (USE_MINIMAX && !isTtsDisabled()) {
+    if (!isTtsDisabled()) {
       try {
         await speak(processedText, { speed });
         setSpeaking(false);
@@ -182,8 +181,8 @@ export default function App() {
           setSpeaking(false);
           return;
         }
-        if (msg !== "MINIMAX_QUOTA" && msg !== "MINIMAX_DISABLED") {
-          alert(`MiniMax TTS 错误：${msg}`);
+        if (msg !== "TTS_QUOTA" && msg !== "TTS_DISABLED") {
+          alert(`TTS 错误：${msg}`);
         }
       }
     }

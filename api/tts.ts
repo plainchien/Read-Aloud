@@ -1,31 +1,42 @@
 /**
- * TTS 代理 API：将 MiniMax 请求转发到服务端，避免 API Key 暴露
- * 环境变量：MINIMAX_API_KEY, MINIMAX_ENABLED（可选，设为 "true" 启用，否则不调用 API）
+ * TTS 代理 API：调用阿里云 Qwen3-TTS-Flash，API Key 仅在服务端
+ * 环境变量：QWENTTS_API_KEY
+ * 音色：随机使用 Ethan 或 Katerina
  */
 
-const T2A_URL = "https://api.minimaxi.com/v1/t2a_v2";
-const MAX_TEXT_LENGTH = 5000;
+const DASHSCOPE_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation";
+const QWEN_VOICES = ["Ethan", "Katerina"] as const;
+const MAX_TEXT_LENGTH = 2000;
+
+function pickRandomVoice(): string {
+  return QWEN_VOICES[Math.floor(Math.random() * QWEN_VOICES.length)];
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 
 export default async function handler(
   req: { method?: string; body?: Record<string, unknown> },
-  res: { setHeader: (k: string, v: string) => void; status: (n: number) => { json: (o: object) => void }; json: (o: object) => void }
+  res: {
+    setHeader: (k: string, v: string) => void;
+    status: (n: number) => { json: (o: object) => void };
+    json: (o: object) => void;
+  }
 ) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  if (process.env.MINIMAX_ENABLED !== "true") {
-    return res.status(503).json({ error: "MINIMAX_DISABLED", message: "TTS 已暂停" });
-  }
-
-  const apiKey = process.env.MINIMAX_API_KEY;
+  const apiKey = process.env.QWENTTS_API_KEY;
   if (!apiKey) {
-    console.error("[TTS API] MINIMAX_API_KEY 未配置");
-    return res.status(500).json({ error: "服务端配置错误" });
+    return res.status(503).json({ error: "TTS_DISABLED", message: "TTS 未配置" });
   }
 
-  const body = req.body as { text?: string; voice_id?: string; vol?: number; pitch?: number };
+  const body = req.body as { text?: string; speed?: number };
   const text = typeof body?.text === "string" ? body.text.trim() : "";
 
   if (!text) {
@@ -36,58 +47,61 @@ export default async function handler(
     return res.status(400).json({ error: "文本过长", message: `最大 ${MAX_TEXT_LENGTH} 字符` });
   }
 
-  const voiceId = body.voice_id ?? "English_Gentle-voiced_man";
-  const vol = typeof body.vol === "number" ? body.vol : 1;
-  const pitch = typeof body.pitch === "number" ? body.pitch : 0;
+    const voice = pickRandomVoice();
 
   try {
-    const minimaxRes = await fetch(T2A_URL, {
+    const genRes = await fetch(DASHSCOPE_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "speech-2.6-hd",
-        text,
-        stream: false,
-        output_format: "hex",
-        voice_setting: {
-          voice_id: voiceId,
-          speed: 1,
-          vol,
-          pitch,
+        model: "qwen3-tts-flash",
+        input: {
+          text,
+          voice,
+          language_type: "English",
         },
-        audio_setting: {
-          sample_rate: 32000,
-          bitrate: 128000,
-          format: "mp3",
-          channel: 1,
-        },
-        pronunciation_dict: { tone: [] },
-        subtitle_enable: false,
       }),
     });
 
-    const data = (await minimaxRes.json()) as Record<string, unknown>;
-    const baseResp = (data?.base_resp as { status_code?: number; status_msg?: string }) || {};
-    const statusCode = baseResp.status_code;
+    const data = (await genRes.json()) as {
+      status_code?: number;
+      code?: string;
+      message?: string;
+      output?: { audio?: { url?: string } };
+    };
 
-    if (statusCode === 1002 || statusCode === 1039) {
-      return res.status(429).json({ error: "MINIMAX_QUOTA", message: "用量超限" });
+    if (data.status_code === 401) {
+      return res.status(503).json({ error: "TTS_DISABLED", message: "API Key 无效" });
     }
 
-    if (statusCode !== 0) {
-      const msg = baseResp.status_msg || `错误码 ${statusCode}`;
-      return res.status(400).json({ error: "MINIMAX_ERROR", message: msg });
+    if (data.status_code === 429) {
+      return res.status(429).json({ error: "TTS_QUOTA", message: "用量超限" });
     }
 
-    const audioHex = (data as { data?: { audio?: string } })?.data?.audio;
-    if (!audioHex || typeof audioHex !== "string") {
+    if (data.status_code !== 200) {
+      const msg = data.message || data.code || `错误码 ${data.status_code}`;
+      return res.status(400).json({ error: "QWEN_ERROR", message: msg });
+    }
+
+    const audioUrl = data.output?.audio?.url;
+    if (!audioUrl || typeof audioUrl !== "string") {
       return res.status(500).json({ error: "未获取到音频数据" });
     }
 
-    return res.status(200).json({ hex: audioHex });
+    const audioRes = await fetch(audioUrl);
+    if (!audioRes.ok) {
+      return res.status(500).json({ error: "音频下载失败" });
+    }
+
+    const arrayBuffer = await audioRes.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    const hex = bytesToHex(bytes);
+    const format = "wav";
+
+    return res.status(200).json({ hex, format });
   } catch (err) {
     console.error("[TTS API] 请求失败", err);
     return res.status(500).json({ error: "请求失败" });

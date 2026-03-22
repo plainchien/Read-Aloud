@@ -1,39 +1,31 @@
 /**
  * TTS 语音合成模块
- * 通过 Vercel Serverless 代理调用 MiniMax，API Key 不暴露给前端
+ * 通过 Vercel Serverless 代理调用阿里云 Qwen3-TTS-Flash，API Key 不暴露给前端
+ * Qwen 为主，失败时由调用方切换 Web Speech 兜底
  */
 
-// 通过 Vercel Serverless 代理，API Key 仅在服务端
 const TTS_API_URL = "/api/tts";
 const DB_NAME = "ReadAloudTTS";
 const DB_STORE = "audio";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const CACHE_MAX = 100;
+
+type CacheEntry = { hex: string; format?: string; ts: number };
 
 export interface SpeakOptions {
   /** 播放倍速 0.75–1.5，默认 1 */
   speed?: number;
-  /** MiniMax 音色 ID，默认 English_Gentle-voiced_man */
-  voice_id?: string;
-  /** 音量 0–2，默认 1 */
-  vol?: number;
-  /** 音调 -12–12，默认 0 */
-  pitch?: number;
 }
 
 const DEFAULT_OPTIONS: Required<SpeakOptions> = {
   speed: 1,
-  voice_id: "English_Gentle-voiced_man",
-  vol: 1,
-  pitch: 0,
 };
 
 let ttsDisabled = false;
 let currentAudio: HTMLAudioElement | null = null;
 let rejectCurrentPlay: (() => void) | null = null;
 
-// 内存缓存：IndexedDB 未就绪时的备用
-const memoryCache = new Map<string, { hex: string; ts: number }>();
+const memoryCache = new Map<string, CacheEntry>();
 
 function log(level: "info" | "warn" | "error", msg: string, extra?: unknown): void {
   const prefix = "[TTS]";
@@ -59,6 +51,10 @@ function hexToBytes(hex: string): Uint8Array {
   return bytes;
 }
 
+function mimeFromFormat(format?: string): string {
+  return format === "wav" ? "audio/wav" : "audio/mpeg";
+}
+
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
@@ -73,7 +69,7 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
-async function getFromIndexedDB(key: string): Promise<{ hex: string; ts: number } | null> {
+async function getFromIndexedDB(key: string): Promise<CacheEntry | null> {
   try {
     const db = await openDB();
     return new Promise((resolve, reject) => {
@@ -82,7 +78,7 @@ async function getFromIndexedDB(key: string): Promise<{ hex: string; ts: number 
       const req = store.get(key);
       req.onsuccess = () => {
         const row = req.result;
-        resolve(row ? { hex: row.hex, ts: row.ts } : null);
+        resolve(row ? { hex: row.hex, format: row.format, ts: row.ts } : null);
       };
       req.onerror = () => reject(req.error);
     });
@@ -92,13 +88,13 @@ async function getFromIndexedDB(key: string): Promise<{ hex: string; ts: number 
   }
 }
 
-async function saveToIndexedDB(key: string, hex: string): Promise<void> {
+async function saveToIndexedDB(key: string, hex: string, format?: string): Promise<void> {
   try {
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(DB_STORE, "readwrite");
       const store = tx.objectStore(DB_STORE);
-      store.put({ key, hex, ts: Date.now() });
+      store.put({ key, hex, format, ts: Date.now() });
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
@@ -125,7 +121,7 @@ async function trimIndexedDB(): Promise<void> {
   }
 }
 
-function playHexAudio(hex: string, playbackRate = 1): Promise<void> {
+function playHexAudio(hex: string, playbackRate = 1, format?: string): Promise<void> {
   if (currentAudio) {
     currentAudio.pause();
     currentAudio.currentTime = 0;
@@ -136,7 +132,8 @@ function playHexAudio(hex: string, playbackRate = 1): Promise<void> {
   return new Promise((resolve, reject) => {
     try {
       const bytes = hexToBytes(hex);
-      const blob = new Blob([bytes], { type: "audio/mpeg" });
+      const mime = mimeFromFormat(format);
+      const blob = new Blob([bytes], { type: mime });
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audio.playbackRate = playbackRate;
@@ -175,25 +172,25 @@ function playHexAudio(hex: string, playbackRate = 1): Promise<void> {
   });
 }
 
-async function fetchFromAPI(
-  text: string,
-  voiceId: string,
-  vol: number,
-  pitch: number
-): Promise<string> {
-  log("info", "调用 TTS 代理", { text: text.slice(0, 50) + "..." });
+async function fetchFromAPI(text: string): Promise<{ hex: string; format?: string }> {
+  log("info", "调用 Qwen TTS 代理", { text: text.slice(0, 50) + "..." });
 
   const res = await fetch(TTS_API_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, voice_id: voiceId, vol, pitch }),
+    body: JSON.stringify({ text }),
   });
 
-  // 429（限流/用量超限）静默切换 Web Speech，用户无感知
   if (res.status === 429) {
     ttsDisabled = true;
     log("warn", "TTS 限流或用量超限，自动切换 Web Speech");
-    throw new Error("MINIMAX_QUOTA");
+    throw new Error("TTS_QUOTA");
+  }
+
+  if (res.status === 503) {
+    ttsDisabled = true;
+    log("warn", "TTS 未配置或已禁用");
+    throw new Error("TTS_DISABLED");
   }
 
   let data: Record<string, unknown>;
@@ -207,9 +204,8 @@ async function fetchFromAPI(
   if (!res.ok) {
     const err = data?.error as string | undefined;
     const msg = (data?.message as string) || res.statusText;
-    if (err === "MINIMAX_QUOTA") {
+    if (err === "TTS_QUOTA" || err === "TTS_DISABLED") {
       ttsDisabled = true;
-      log("warn", "MiniMax 用量超限，已禁用");
     } else {
       log("error", "TTS 代理错误", { status: res.status, msg });
     }
@@ -222,20 +218,21 @@ async function fetchFromAPI(
     throw new Error("未获取到音频数据");
   }
 
-  return audioHex;
+  const format = typeof data?.format === "string" ? data.format : undefined;
+  return { hex: audioHex, format };
 }
 
 /**
- * 朗读文本
+ * 朗读文本（Qwen TTS）
  * @param text 待朗读的文本
- * @param options 可选：speed、voice_id、vol、pitch
+ * @param options 可选：speed
  */
 export async function speak(text: string, options: SpeakOptions = {}): Promise<void> {
   const t = text.trim();
   if (!t) return;
 
   if (ttsDisabled) {
-    throw new Error("MINIMAX_DISABLED");
+    throw new Error("TTS_DISABLED");
   }
 
   const opts = { ...DEFAULT_OPTIONS, ...options };
@@ -245,7 +242,7 @@ export async function speak(text: string, options: SpeakOptions = {}): Promise<v
   let cached = await getFromIndexedDB(key);
   if (cached) {
     log("info", "缓存命中 (IndexedDB)");
-    await playHexAudio(cached.hex, opts.speed);
+    await playHexAudio(cached.hex, opts.speed, cached.format);
     return;
   }
 
@@ -253,21 +250,21 @@ export async function speak(text: string, options: SpeakOptions = {}): Promise<v
   cached = memoryCache.get(key);
   if (cached) {
     log("info", "缓存命中 (内存)");
-    await playHexAudio(cached.hex, opts.speed);
+    await playHexAudio(cached.hex, opts.speed, cached.format);
     return;
   }
 
   // 3. 调用 API
-  const hex = await fetchFromAPI(t, opts.voice_id, opts.vol, opts.pitch);
+  const { hex, format } = await fetchFromAPI(t);
 
   // 4. 写入缓存
-  const entry = { hex, ts: Date.now() };
+  const entry: CacheEntry = { hex, format, ts: Date.now() };
   memoryCache.set(key, entry);
-  await saveToIndexedDB(key, hex);
+  await saveToIndexedDB(key, hex, format);
   trimIndexedDB();
 
   // 5. 播放
-  await playHexAudio(hex, opts.speed);
+  await playHexAudio(hex, opts.speed, format);
 }
 
 /** 停止当前播放 */
@@ -282,7 +279,7 @@ export function stop(): void {
   }
 }
 
-/** 是否因用量超限已禁用 */
+/** 是否因用量超限或未配置已禁用 */
 export function isDisabled(): boolean {
   return ttsDisabled;
 }
