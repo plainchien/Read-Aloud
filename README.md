@@ -11,7 +11,9 @@ npm run dev
 
 浏览器访问 **http://localhost:5173**
 
-**环境变量（Vercel）：** `QWENTTS_API_KEY` — 阿里云百炼 Qwen-TTS API Key，用于 Qwen3-TTS-Flash 语音合成
+**环境变量（Vercel）：**
+- `QWENTTS_API_KEY`（必填）— 阿里云百炼 Qwen-TTS API Key
+- `QWENTTS_REGION`（可选）— 设为 `cn` 使用北京端点，不设则使用新加坡端点（Vercel 推荐，国际 Key 用新加坡）
 
 移动端测试：`npm run dev -- --host`，用手机访问终端显示的 Network 地址
 
