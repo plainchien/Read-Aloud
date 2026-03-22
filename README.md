@@ -2,16 +2,6 @@
 
 移动端优先的响应式网页，支持英文文本朗读、翻译、单词查词。
 
-## 运行
-
-```bash
-npm install --cache .npm-cache
-npm run dev
-```
-
-浏览器访问 **http://localhost:5173**
-
-移动端测试：`npm run dev -- --host`，用手机访问终端显示的 Network 地址
 
 ## 功能
 
