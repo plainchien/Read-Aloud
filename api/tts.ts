@@ -33,7 +33,7 @@ export default async function handler(
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const apiKey = process.env.QWENTTS_API_KEY;
+  const apiKey = (process.env.QWENTTS_API_KEY || "").trim();
   if (!apiKey) {
     return res.status(503).json({ error: "TTS_DISABLED", message: "TTS 未配置，请设置 QWENTTS_API_KEY" });
   }
@@ -53,6 +53,14 @@ export default async function handler(
   }
 
   const voice = pickRandomVoice();
+  const requestBody = {
+    model: "qwen3-tts-flash",
+    input: {
+      text,
+      voice,
+      language_type: "English",
+    },
+  };
 
   try {
     const genRes = await fetch(apiUrl, {
@@ -61,65 +69,67 @@ export default async function handler(
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model: "qwen3-tts-flash",
-        input: {
-          text,
-          voice,
-          language_type: "English",
-        },
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     const rawText = await genRes.text();
-    let data: {
-      status_code?: number;
-      code?: string;
-      message?: string;
-      request_id?: string;
-      output?: { audio?: { url?: string } };
-    };
+    let data: Record<string, unknown>;
     try {
-      data = JSON.parse(rawText) as typeof data;
+      data = JSON.parse(rawText) as Record<string, unknown>;
     } catch {
       console.error("[TTS API] DashScope 响应解析失败", { status: genRes.status, body: rawText.slice(0, 500) });
       return res.status(500).json({ error: "API_ERROR", message: "服务响应异常" });
     }
 
+    const statusCode = (data.status_code ?? data.statusCode ?? data.StatusCode) as number | undefined;
+    const code = (data.code ?? data.error) as string | undefined;
+    const message = (data.message ?? data.errorMessage ?? data.msg) as string | undefined;
+    const output = data.output as Record<string, unknown> | undefined;
+    const audio = output?.audio as Record<string, unknown> | undefined;
+    const audioUrl = audio?.url as string | undefined;
+
     if (!genRes.ok) {
-      console.error("[TTS API] DashScope HTTP 错误", { status: genRes.status, code: data?.code, message: data?.message });
+      console.error("[TTS API] DashScope HTTP 错误", { status: genRes.status, url: apiUrl, request: { model: requestBody.model, voice: requestBody.input.voice, textLen: text.length }, raw: rawText.slice(0, 500) });
     }
 
-    if (data.status_code === 401 || genRes.status === 401) {
+    if (statusCode === 401 || genRes.status === 401) {
       return res.status(503).json({ error: "TTS_DISABLED", message: "API Key 无效或地域不匹配（国际 Key 用新加坡端点，中国 Key 用 QWENTTS_REGION=cn）" });
     }
 
-    if (data.status_code === 429 || genRes.status === 429) {
+    if (statusCode === 429 || genRes.status === 429) {
       return res.status(429).json({ error: "TTS_QUOTA", message: "用量超限" });
     }
 
-    if (data.status_code !== 200) {
-      const msg = data.message || data.code || `错误码 ${data.status_code}`;
-      console.error("[TTS API] DashScope 业务错误", { status_code: data.status_code, code: data.code, message: data.message, request_id: data.request_id });
+    if (genRes.ok && audioUrl && typeof audioUrl === "string") {
+      const audioRes = await fetch(audioUrl);
+      if (!audioRes.ok) {
+        return res.status(500).json({ error: "音频下载失败" });
+      }
+      const arrayBuffer = await audioRes.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      const hex = bytesToHex(bytes);
+      return res.status(200).json({ hex, format: "wav" });
+    }
+
+    if (statusCode !== 200 && statusCode !== undefined) {
+      const msg = message || code || `错误码 ${statusCode}`;
+      console.error("[TTS API] DashScope 业务错误", { statusCode, code, message, request_id: data.request_id, raw: rawText.slice(0, 600) });
       return res.status(400).json({ error: "QWEN_ERROR", message: msg });
     }
 
-    const audioUrl = data.output?.audio?.url;
     if (!audioUrl || typeof audioUrl !== "string") {
-      return res.status(500).json({ error: "未获取到音频数据" });
+      console.error("[TTS API] 响应结构异常，无 audio.url", { httpStatus: genRes.status, keys: Object.keys(data), request: { model: requestBody.model, voice: requestBody.input.voice }, raw: rawText.slice(0, 600) });
+      return res.status(500).json({ error: "API_ERROR", message: "响应缺少音频地址，request_id: " + ((data.request_id as string) || "无") });
     }
 
     const audioRes = await fetch(audioUrl);
     if (!audioRes.ok) {
       return res.status(500).json({ error: "音频下载失败" });
     }
-
     const arrayBuffer = await audioRes.arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
     const hex = bytesToHex(bytes);
-    const format = "wav";
-
-    return res.status(200).json({ hex, format });
+    return res.status(200).json({ hex, format: "wav" });
   } catch (err) {
     console.error("[TTS API] 请求失败", err);
     return res.status(500).json({ error: "请求失败" });
