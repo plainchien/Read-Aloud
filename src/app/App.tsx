@@ -8,11 +8,10 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
-  BookOpen,
 } from "lucide-react";
 import { WordCard } from "./components/WordCard";
 import { fetchApi } from "../lib/fetchApi";
-import { speak, stop as ttsStop, isDisabled as isTtsDisabled } from "../lib/tts";
+import { speak, stop as ttsStop, isDisabled as isTtsDisabled, prefetch } from "../lib/tts";
 
 const SAMPLE_TEXTS = [
   "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs.",
@@ -111,6 +110,12 @@ export default function App() {
     ttsStop();
     setScreen("read");
   };
+
+  useEffect(() => {
+    if (screen !== "read" || !processedText || isTtsDisabled()) return;
+    const timer = setTimeout(() => prefetch(processedText), 300);
+    return () => clearTimeout(timer);
+  }, [screen, processedText]);
 
   const clearRestartTimeout = useCallback(() => {
     if (restartTimeoutRef.current) {
@@ -289,7 +294,7 @@ export default function App() {
         <div className="flex-1 flex flex-col w-full max-w-xl mx-auto min-w-0 sm:px-2 md:max-w-2xl md:px-4">
         {/* Header */}
         <header
-          className="flex items-center gap-3 px-5"
+          className="flex items-center px-5"
           style={{
             paddingTop: "max(env(safe-area-inset-top), 20px)",
             paddingBottom: "16px",
@@ -297,18 +302,16 @@ export default function App() {
             borderBottom: "1px solid #efefef",
           }}
         >
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{ background: "#111" }}
+          <h1
+            style={{
+              fontFamily: "'Metal', serif",
+              fontSize: "clamp(1rem, 4.5vw, 1.25rem)",
+              margin: 0,
+              color: "#121212",
+            }}
           >
-            <Sparkles size={16} color="#fff" />
-          </div>
-          <div>
-            <h1 style={{ fontSize: "1rem", margin: 0, color: "#111" }}>EnglishAI</h1>
-            <p style={{ fontSize: "0.67rem", color: "#aaa", margin: 0 }}>
-              听 · 读 · 译
-            </p>
-          </div>
+            📰 Daily Read Aloud
+          </h1>
         </header>
 
         {/* Textarea area */}
@@ -401,6 +404,20 @@ export default function App() {
         </div>
 
         </div>
+
+        <footer
+          className="py-3 text-center"
+          style={{ paddingBottom: "max(env(safe-area-inset-bottom), 12px)" }}
+        >
+          <a
+            href="https://www.resparkx.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontSize: "0.7rem", color: "#AEAFB4", textDecoration: "none" }}
+          >
+            ©2026 ReSparkX by Xlll
+          </a>
+        </footer>
         <style>{`
           textarea::placeholder { color: #ccc; }
           * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
@@ -430,17 +447,16 @@ export default function App() {
           borderBottom: "1px solid #efefef",
         }}
       >
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "#111" }}>
-            <BookOpen size={15} color="#fff" />
-          </div>
-          <div>
-            <h1 style={{ fontSize: "0.95rem", margin: 0, color: "#111" }}>阅读模式</h1>
-            <p style={{ fontSize: "0.67rem", color: "#bbb", margin: 0 }}>
-              点击单词 · 查看释义
-            </p>
-          </div>
-        </div>
+        <h1
+          style={{
+            fontFamily: "'Metal', serif",
+            fontSize: "clamp(1rem, 4.5vw, 1.25rem)",
+            margin: 0,
+            color: "#121212",
+          }}
+        >
+          📰 Daily Read Aloud
+        </h1>
         <button
           onClick={handleEdit}
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all active:scale-95"
@@ -668,6 +684,19 @@ export default function App() {
         <WordCard word={selectedWord} onClose={() => setSelectedWord(null)} />
       )}
 
+      <footer
+        className="py-3 text-center"
+        style={{ paddingBottom: "max(env(safe-area-inset-bottom), 12px)" }}
+      >
+        <a
+          href="https://www.resparkx.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ fontSize: "0.7rem", color: "#AEAFB4", textDecoration: "none" }}
+        >
+          ©2026 ReSparkX by Xlll
+        </a>
+      </footer>
       </div>
       <style>{`
         @keyframes spin {

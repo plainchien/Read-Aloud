@@ -223,11 +223,72 @@ async function fetchFromAPI(text: string): Promise<{ hex: string; format?: strin
   return { hex: audioHex, format };
 }
 
+/** 分块阈值，超长文本分块并行请求以加快首段播放 */
+const CHUNK_SIZE = 350;
+
+function splitIntoChunks(text: string): string[] {
+  const t = text.trim();
+  if (t.length <= CHUNK_SIZE) return [t];
+  const chunks: string[] = [];
+  let remain = t;
+  while (remain.length > 0) {
+    if (remain.length <= CHUNK_SIZE) {
+      chunks.push(remain.trim());
+      break;
+    }
+    const slice = remain.slice(0, CHUNK_SIZE);
+    const lastDot = slice.lastIndexOf(". ");
+    const lastBang = slice.lastIndexOf("! ");
+    const lastQ = slice.lastIndexOf("? ");
+    const lastBreak = Math.max(lastDot, lastBang, lastQ);
+    const end = lastBreak >= 0 ? lastBreak + 2 : CHUNK_SIZE;
+    chunks.push(remain.slice(0, end).trim());
+    remain = remain.slice(end).trim();
+  }
+  return chunks.filter((c) => c.length > 0);
+}
+
+/**
+ * 预取音频到缓存（不播放），进入朗读页时调用可减少点击播放的等待
+ */
+export async function prefetch(text: string): Promise<void> {
+  const t = text.trim();
+  if (!t || ttsDisabled) return;
+  const key = cacheKey(t);
+  if (memoryCache.has(key)) return;
+  try {
+    const cached = await getFromIndexedDB(key);
+    if (cached) return;
+    const { hex, format } = await fetchFromAPI(t);
+    const entry: CacheEntry = { hex, format, ts: Date.now() };
+    memoryCache.set(key, entry);
+    await saveToIndexedDB(key, hex, format);
+    trimIndexedDB();
+    log("info", "预取完成", { len: t.length });
+  } catch (err) {
+    log("warn", "预取失败", err);
+  }
+}
+
 /**
  * 朗读文本（Qwen TTS）
  * @param text 待朗读的文本
  * @param options 可选：speed
  */
+async function getOrFetchChunk(chunk: string): Promise<CacheEntry> {
+  const key = cacheKey(chunk);
+  let cached = await getFromIndexedDB(key);
+  if (cached) return cached;
+  cached = memoryCache.get(key);
+  if (cached) return cached;
+  const { hex, format } = await fetchFromAPI(chunk);
+  const entry: CacheEntry = { hex, format, ts: Date.now() };
+  memoryCache.set(key, entry);
+  await saveToIndexedDB(key, hex, format);
+  trimIndexedDB();
+  return entry;
+}
+
 export async function speak(text: string, options: SpeakOptions = {}): Promise<void> {
   const t = text.trim();
   if (!t) return;
@@ -237,35 +298,35 @@ export async function speak(text: string, options: SpeakOptions = {}): Promise<v
   }
 
   const opts = { ...DEFAULT_OPTIONS, ...options };
-  const key = cacheKey(t);
+  const chunks = splitIntoChunks(t);
 
-  // 1. 优先从 IndexedDB 读取
-  let cached = await getFromIndexedDB(key);
-  if (cached) {
-    log("info", "缓存命中 (IndexedDB)");
-    await playHexAudio(cached.hex, opts.speed, cached.format);
+  if (chunks.length === 1) {
+    const key = cacheKey(t);
+    let cached = await getFromIndexedDB(key);
+    if (cached) {
+      log("info", "缓存命中 (IndexedDB)");
+      await playHexAudio(cached.hex, opts.speed, cached.format);
+      return;
+    }
+    cached = memoryCache.get(key);
+    if (cached) {
+      log("info", "缓存命中 (内存)");
+      await playHexAudio(cached.hex, opts.speed, cached.format);
+      return;
+    }
+    const { hex, format } = await fetchFromAPI(t);
+    const entry: CacheEntry = { hex, format, ts: Date.now() };
+    memoryCache.set(key, entry);
+    await saveToIndexedDB(key, hex, format);
+    trimIndexedDB();
+    await playHexAudio(hex, opts.speed, format);
     return;
   }
 
-  // 2. 内存缓存
-  cached = memoryCache.get(key);
-  if (cached) {
-    log("info", "缓存命中 (内存)");
-    await playHexAudio(cached.hex, opts.speed, cached.format);
-    return;
+  const entries = await Promise.all(chunks.map((c) => getOrFetchChunk(c)));
+  for (const e of entries) {
+    await playHexAudio(e.hex, opts.speed, e.format);
   }
-
-  // 3. 调用 API
-  const { hex, format } = await fetchFromAPI(t);
-
-  // 4. 写入缓存
-  const entry: CacheEntry = { hex, format, ts: Date.now() };
-  memoryCache.set(key, entry);
-  await saveToIndexedDB(key, hex, format);
-  trimIndexedDB();
-
-  // 5. 播放
-  await playHexAudio(hex, opts.speed, format);
 }
 
 /** 停止当前播放 */
