@@ -207,9 +207,10 @@ async function fetchFromAPI(text: string): Promise<{ hex: string; format?: strin
     if (err === "TTS_QUOTA" || err === "TTS_DISABLED") {
       ttsDisabled = true;
     } else {
-      log("error", "TTS 代理错误", { status: res.status, msg });
+      log("error", "TTS 代理错误", { status: res.status, err, msg });
     }
-    throw new Error(err || msg);
+    // 优先展示服务端返回的具体错误信息
+    throw new Error(msg || err || "TTS 请求失败");
   }
 
   const audioHex = data?.hex;

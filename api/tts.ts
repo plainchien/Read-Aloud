@@ -8,7 +8,7 @@
 const DASHSCOPE_CN = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation";
 const DASHSCOPE_INTL = "https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation";
 const QWEN_VOICES = ["Ethan", "Katerina"] as const;
-const MAX_TEXT_LENGTH = 2000;
+const MAX_TEXT_LENGTH = 600;
 
 function pickRandomVoice(): string {
   return QWEN_VOICES[Math.floor(Math.random() * QWEN_VOICES.length)];
