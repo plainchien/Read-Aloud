@@ -5,6 +5,7 @@
   "rewrites": [
     { "source": "/readaloud/assets/(.*)", "destination": "/assets/$1" },
     { "source": "/readaloud", "destination": "/index.html" },
+    { "source": "/readaloud/", "destination": "/index.html" },
     { "source": "/readaloud/:path*", "destination": "/index.html" }
   ],
   "headers": [
