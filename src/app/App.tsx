@@ -99,6 +99,15 @@ export default function App() {
       clearTimeout(restartTimeoutRef.current);
       restartTimeoutRef.current = null;
     }
+    // 进入朗读页时提前解锁音频，首次点击播放即可出声
+    if (typeof window !== "undefined") {
+      const w = window as Window & { __ttsUnlocked?: boolean };
+      if (!w.__ttsUnlocked) {
+        w.__ttsUnlocked = true;
+        const silent = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
+        silent.play().catch(() => {});
+      }
+    }
     const text = inputText.trim();
     setProcessedText(text);
     setTokens(tokenize(text));
@@ -134,13 +143,13 @@ export default function App() {
       return;
     }
 
-    // 在用户点击的同步上下文中解锁音频，避免浏览器自动播放策略拦截
+    // 在用户点击的同步上下文中解锁音频，避免浏览器自动播放策略拦截；必须 await 确保解锁完成后再做异步请求
     if (typeof window !== "undefined") {
       const w = window as Window & { __ttsUnlocked?: boolean };
       if (!w.__ttsUnlocked) {
         w.__ttsUnlocked = true;
         const silent = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
-        silent.play().catch(() => {});
+        await silent.play().catch(() => {});
       }
     }
 
@@ -183,6 +192,10 @@ export default function App() {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         if (msg === "STOPPED") {
+          setSpeaking(false);
+          return;
+        }
+        if (msg === "AUDIO_BLOCKED") {
           setSpeaking(false);
           return;
         }

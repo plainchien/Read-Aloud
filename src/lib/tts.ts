@@ -162,9 +162,15 @@ function playHexAudio(hex: string, playbackRate = 1, format?: string): Promise<v
         cleanup();
         reject(new Error("音频播放失败"));
       };
-      audio.play().catch((err) => {
+      audio.play().catch((err: unknown) => {
         cleanup();
-        reject(err);
+        const msg = err instanceof Error ? err.message : String(err);
+        const name = err instanceof Error && "name" in err ? (err as Error & { name?: string }).name : "";
+        if (name === "NotAllowedError" || /not allowed|user denied|user agent/i.test(msg)) {
+          reject(new Error("AUDIO_BLOCKED"));
+        } else {
+          reject(err);
+        }
       });
     } catch (err) {
       reject(err instanceof Error ? err : new Error(String(err)));
