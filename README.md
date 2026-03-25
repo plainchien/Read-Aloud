@@ -5,11 +5,13 @@
 ## 功能
 
 - 输入/粘贴英文文本
-- 整句朗读：**阿里云百炼 Qwen TTS**（默认模型 `qwen-tts`，可在 Vercel 环境变量 `QWENTTS_MODEL` 覆盖），用量超限或未配置时自动切换 **Web Speech**
-- 朗读时高亮当前单词（Web Speech 模式）
+- 整句朗读：**Kokoro TTS**（经同域 **`/readaloud/api/tts-proxy`** → Vercel 函数转发至 Hugging Face Space；密钥用环境变量 **`KOKORO_API_KEY`**，可选 **`KOKORO_TTS_URL`** 覆盖上游地址）。失败或未配置时自动降级 **Web Speech**
+- 朗读时逐词高亮（仅在走 **Web Speech** 兜底时有效；Kokoro 播放为整段音频无逐词边界）
 - 点击单词查看音标与释义（Free Dictionary API）
 - 中文翻译（MyMemory API）
-- 倍速调节 0.5×～1.25×，音频缓存减少重复请求
+- 倍速 **0.75× / 1× / 1.5×**（播放端 `playbackRate`）；音频缓存（IndexedDB + 内存）减少重复请求
+
+> 仓库中仍保留 **`api/tts.ts`**（阿里云百炼 Qwen TTS），当前前端未调用；若需恢复 Qwen 需改 `src/lib/tts.ts` 的接口路径与响应格式。
 
 ## 本地测试（含 Kokoro `/api/tts-proxy`）
 
