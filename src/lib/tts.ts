@@ -1,10 +1,15 @@
 /**
  * TTS 语音合成模块
- * 通过 Vercel Serverless 代理调用阿里云 Qwen3-TTS-Flash，API Key 不暴露给前端
- * Qwen 为主，失败时由调用方切换 Web Speech 兜底
+ * 通过同域 `/api/tts-proxy` 调用自部署 Kokoro（Hugging Face Space），密钥仅在服务端。
+ * 页面倍速仅作用于播放（HTMLAudioElement.playbackRate）；上游合成使用固定 speed=1，便于缓存与预取一致。
+ * 失败时由调用方切换 Web Speech 兜底。
  */
 
-const TTS_API_URL = "/api/tts";
+const TTS_API_URL = "/api/tts-proxy";
+/** 与代理默认一致，英文学朗读 */
+const KOKORO_VOICE = "af_heart";
+/** 上游合成语速；UI 倍速见 SpeakOptions.speed → playbackRate */
+const KOKORO_SYNTH_SPEED = 1.0;
 const DB_NAME = "ReadAloudTTS";
 const DB_STORE = "audio";
 const DB_VERSION = 2;
@@ -49,6 +54,12 @@ function hexToBytes(hex: string): Uint8Array {
     bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
   }
   return bytes;
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 function mimeFromFormat(format?: string): string {
@@ -133,7 +144,9 @@ function playHexAudio(hex: string, playbackRate = 1, format?: string): Promise<v
     try {
       const bytes = hexToBytes(hex);
       const mime = mimeFromFormat(format);
-      const blob = new Blob([bytes], { type: mime });
+      const copy = new Uint8Array(bytes.byteLength);
+      copy.set(bytes);
+      const blob = new Blob([copy], { type: mime });
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audio.playbackRate = playbackRate;
@@ -179,13 +192,21 @@ function playHexAudio(hex: string, playbackRate = 1, format?: string): Promise<v
 }
 
 async function fetchFromAPI(text: string): Promise<{ hex: string; format?: string }> {
-  log("info", "调用 Qwen TTS 代理", { text: text.slice(0, 50) + "..." });
+  log("info", "调用 Kokoro TTS 代理", {
+    text: text.slice(0, 50) + (text.length > 50 ? "..." : ""),
+  });
 
   const res = await fetch(TTS_API_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({
+      text,
+      voice: KOKORO_VOICE,
+      speed: KOKORO_SYNTH_SPEED,
+    }),
   });
+
+  const ct = (res.headers.get("content-type") || "").toLowerCase();
 
   if (res.status === 429) {
     ttsDisabled = true;
@@ -199,34 +220,40 @@ async function fetchFromAPI(text: string): Promise<{ hex: string; format?: strin
     throw new Error("TTS_DISABLED");
   }
 
-  let data: Record<string, unknown>;
-  try {
-    data = await res.json();
-  } catch {
-    log("error", "API 响应解析失败");
-    throw new Error("API 响应解析失败");
-  }
-
   if (!res.ok) {
-    const err = data?.error as string | undefined;
-    const msg = (data?.message as string) || res.statusText;
-    if (err === "TTS_QUOTA" || err === "TTS_DISABLED") {
+    let msg = res.statusText;
+    let errCode: string | undefined;
+    if (ct.includes("application/json")) {
+      try {
+        const data = (await res.json()) as { error?: string; message?: string };
+        errCode = data.error;
+        msg = (data.message || data.error || msg) as string;
+      } catch {
+        log("error", "TTS 错误响应解析失败");
+      }
+    } else {
+      try {
+        const t = await res.text();
+        if (t) msg = t.slice(0, 200);
+      } catch {
+        /* ignore */
+      }
+    }
+    if (errCode === "TTS_QUOTA" || errCode === "TTS_DISABLED") {
       ttsDisabled = true;
     } else {
-      log("error", "TTS 代理错误", { status: res.status, err, msg });
+      log("error", "TTS 代理错误", { status: res.status, errCode, msg });
     }
-    // 优先展示服务端返回的具体错误信息
-    throw new Error(msg || err || "TTS 请求失败");
+    throw new Error(msg || errCode || "TTS 请求失败");
   }
 
-  const audioHex = data?.hex;
-  if (!audioHex || typeof audioHex !== "string") {
-    log("error", "未获取到音频数据");
+  const buf = new Uint8Array(await res.arrayBuffer());
+  if (buf.length < 32) {
+    log("error", "未获取到有效音频数据");
     throw new Error("未获取到音频数据");
   }
 
-  const format = typeof data?.format === "string" ? data.format : undefined;
-  return { hex: audioHex, format };
+  return { hex: bytesToHex(buf), format: "mp3" };
 }
 
 /** 分块阈值，超长文本分块并行请求以加快首段播放 */
@@ -277,16 +304,16 @@ export async function prefetch(text: string): Promise<void> {
 }
 
 /**
- * 朗读文本（Qwen TTS）
+ * 朗读文本（Kokoro，经 /api/tts-proxy）
  * @param text 待朗读的文本
- * @param options 可选：speed
+ * @param options 可选：speed（播放倍速，非上游合成参数）
  */
 async function getOrFetchChunk(chunk: string): Promise<CacheEntry> {
   const key = cacheKey(chunk);
   let cached = await getFromIndexedDB(key);
   if (cached) return cached;
-  cached = memoryCache.get(key);
-  if (cached) return cached;
+  const memHit = memoryCache.get(key);
+  if (memHit) return memHit;
   const { hex, format } = await fetchFromAPI(chunk);
   const entry: CacheEntry = { hex, format, ts: Date.now() };
   memoryCache.set(key, entry);
@@ -314,10 +341,10 @@ export async function speak(text: string, options: SpeakOptions = {}): Promise<v
       await playHexAudio(cached.hex, opts.speed, cached.format);
       return;
     }
-    cached = memoryCache.get(key);
-    if (cached) {
+    const memHit = memoryCache.get(key);
+    if (memHit) {
       log("info", "缓存命中 (内存)");
-      await playHexAudio(cached.hex, opts.speed, cached.format);
+      await playHexAudio(memHit.hex, opts.speed, memHit.format);
       return;
     }
     const { hex, format } = await fetchFromAPI(t);

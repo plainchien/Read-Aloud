@@ -22,7 +22,7 @@ const SAMPLE_TEXTS = [
 
 const SPEEDS = [0.75, 1, 1.5];
 
-/** Qwen TTS 为主，失败时自动切换 Web Speech 兜底 */
+/** Kokoro TTS（/api/tts-proxy）为主，失败时自动切换 Web Speech 兜底 */
 
 interface Token {
   token: string;
@@ -202,6 +202,7 @@ export default function App() {
         if (msg !== "TTS_QUOTA" && msg !== "TTS_DISABLED") {
           alert(`TTS 错误：${msg}`);
         }
+        console.warn("Kokoro 失败，降级到 Web Speech API", err);
       }
     }
 
