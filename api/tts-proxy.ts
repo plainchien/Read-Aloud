@@ -3,12 +3,28 @@
  *
  * 环境变量：
  * - KOKORO_API_KEY（必填）
- * - KOKORO_TTS_URL（可选）完整上游 POST 地址；默认与需求文档一致为 Space 根 URL。若实际为 `/v1/audio/speech`，请设为 `https://…/v1/audio/speech`。
+ * - KOKORO_TTS_URL（可选）完整上游 POST 地址
+ *
+ * 说明：上游逻辑内联在本文件，避免 Vercel 打包时子模块解析失败导致 FUNCTION_INVOCATION_FAILED。
+ * 开发环境 Vite 插件仍使用 `api/kokoro-forward.ts`，两处请保持请求体与默认 URL 一致。
  */
 
-import { fetchKokoroTtsAudio, kokoroUpstreamUrlFromEnv } from "./kokoro-forward";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-function parseJsonBody(req: { body?: unknown }): Record<string, unknown> {
+/** Space 根路径往往 404；OpenAI 兼容语音接口一般在 /v1/audio/speech */
+const DEFAULT_TTS_URL =
+  "https://monklll-kokorotts-api.hf.space/v1/audio/speech";
+
+function upstreamUrl(): string {
+  return (process.env.KOKORO_TTS_URL || DEFAULT_TTS_URL).trim().replace(/\/$/, "");
+}
+
+export const config = {
+  runtime: "nodejs",
+  maxDuration: 60,
+};
+
+function parseJsonBody(req: VercelRequest): Record<string, unknown> {
   const b = req.body;
   if (b == null) return {};
   if (typeof b === "string") {
@@ -24,19 +40,41 @@ function parseJsonBody(req: { body?: unknown }): Record<string, unknown> {
   return {};
 }
 
-type Res = {
-  setHeader: (k: string, v: string) => void;
-  status: (n: number) => {
-    json: (o: object) => void;
-    send: (b: Buffer) => void;
-    end: (chunk?: string | Buffer) => void;
-  };
-};
+async function forwardToKokoro(opts: {
+  text: string;
+  voice: string;
+  speed: number;
+  apiKey: string;
+}): Promise<{ ok: true; audio: ArrayBuffer } | { ok: false; status: number; message: string; logBody?: string }> {
+  const response = await fetch(upstreamUrl(), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${opts.apiKey}`,
+    },
+    body: JSON.stringify({
+      input: opts.text,
+      voice: opts.voice,
+      speed: opts.speed,
+      response_format: "mp3",
+    }),
+  });
 
-export default async function handler(
-  req: { method?: string; body?: unknown },
-  res: Res
-): Promise<void> {
+  if (!response.ok) {
+    const errText = await response.text().catch(() => "");
+    return {
+      ok: false,
+      status: response.status,
+      message: `Space API 响应错误: ${response.status}`,
+      logBody: errText.slice(0, 500),
+    };
+  }
+
+  const audio = await response.arrayBuffer();
+  return { ok: true, audio };
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method === "OPTIONS") {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -71,13 +109,7 @@ export default async function handler(
       return;
     }
 
-    const result = await fetchKokoroTtsAudio({
-      text,
-      voice,
-      speed,
-      apiKey,
-      upstreamUrl: kokoroUpstreamUrlFromEnv(process.env),
-    });
+    const result = await forwardToKokoro({ text, voice, speed, apiKey });
 
     if (!result.ok) {
       console.error("[tts-proxy] Space 响应错误", result.status, result.logBody);
@@ -92,7 +124,8 @@ export default async function handler(
 
     res.setHeader("Content-Type", "audio/mpeg");
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.status(200).send(buf);
+    // 部分环境下 res.status().send(Buffer) 不可用，用 end 更稳妥
+    res.status(200).end(buf);
   } catch (error) {
     console.error("[tts-proxy] TTS 代理错误:", error);
     res.status(500).json({ error: "TTS 服务暂时不可用" });
