@@ -156,11 +156,11 @@ function playHexAudio(hex: string, playbackRate = 1, format?: string): Promise<v
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audio.playbackRate = playbackRate;
-      // 非 1× 时默认「保调」时间拉伸常让语音发闷、发虚；关闭后随语速自然变调，听感更接近真人
+      // 0.75× / 1.5× 时若关闭保调，音高随语速变，听感会像「换了人」；显式保调以维持 Kokoro 音色一致（依赖浏览器时间拉伸实现）
       if (playbackRate !== 1) {
         const a = audio as HTMLAudioElement & { preservesPitch?: boolean; webkitPreservesPitch?: boolean };
-        if ("preservesPitch" in a) a.preservesPitch = false;
-        if ("webkitPreservesPitch" in a) a.webkitPreservesPitch = false;
+        if ("preservesPitch" in a) a.preservesPitch = true;
+        if ("webkitPreservesPitch" in a) a.webkitPreservesPitch = true;
       }
       currentAudio = audio;
 
