@@ -6,11 +6,7 @@
  * - KOKORO_TTS_URL（可选）完整上游 POST 地址；默认与需求文档一致为 Space 根 URL。若实际为 `/v1/audio/speech`，请设为 `https://…/v1/audio/speech`。
  */
 
-const DEFAULT_TTS_URL = "https://monklll-kokorotts-api.hf.space";
-
-function upstreamUrl(): string {
-  return (process.env.KOKORO_TTS_URL || DEFAULT_TTS_URL).trim().replace(/\/$/, "");
-}
+import { fetchKokoroTtsAudio, kokoroUpstreamUrlFromEnv } from "./kokoro-forward";
 
 function parseJsonBody(req: { body?: unknown }): Record<string, unknown> {
   const b = req.body;
@@ -75,32 +71,24 @@ export default async function handler(
       return;
     }
 
-    const response = await fetch(upstreamUrl(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        input: text,
-        voice,
-        speed,
-        response_format: "mp3",
-      }),
+    const result = await fetchKokoroTtsAudio({
+      text,
+      voice,
+      speed,
+      apiKey,
+      upstreamUrl: kokoroUpstreamUrlFromEnv(process.env),
     });
 
-    if (!response.ok) {
-      const errText = await response.text().catch(() => "");
-      console.error("[tts-proxy] Space 响应错误", response.status, errText.slice(0, 500));
+    if (!result.ok) {
+      console.error("[tts-proxy] Space 响应错误", result.status, result.logBody);
       res.status(502).json({
         error: "UPSTREAM_ERROR",
-        message: `Space API 响应错误: ${response.status}`,
+        message: result.message,
       });
       return;
     }
 
-    const audio = await response.arrayBuffer();
-    const buf = Buffer.from(audio);
+    const buf = Buffer.from(result.audio);
 
     res.setHeader("Content-Type", "audio/mpeg");
     res.setHeader("Access-Control-Allow-Origin", "*");

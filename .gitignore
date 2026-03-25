@@ -3,3 +3,10 @@ dist
 .npm-cache
 *.log
 .DS_Store
+.vercel
+
+# 环境变量（勿提交密钥）
+.env
+.env.local
+.env.*.local
+!.env.example

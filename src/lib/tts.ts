@@ -1,18 +1,21 @@
 /**
  * TTS 语音合成模块
- * 通过同域 `/api/tts-proxy` 调用自部署 Kokoro（Hugging Face Space），密钥仅在服务端。
+ * 通过同域 API（与 Vite `base` 一致，如 `/readaloud/api/tts-proxy`）调用 Kokoro，密钥仅在服务端。
  * 页面倍速仅作用于播放（HTMLAudioElement.playbackRate）；上游合成使用固定 speed=1，便于缓存与预取一致。
  * 失败时由调用方切换 Web Speech 兜底。
  */
 
-const TTS_API_URL = "/api/tts-proxy";
-/** 与代理默认一致，英文学朗读 */
+/** 与 `vite.config` 的 `base` 对齐，避免部署在子路径时请求落到根 `/api` 导致 404 */
+const TTS_API_URL = `${import.meta.env.BASE_URL}api/tts-proxy`.replace(/\/{2,}/g, "/");
+/** Kokoro 固定音色（美式女声） */
 const KOKORO_VOICE = "af_heart";
+
 /** 上游合成语速；UI 倍速见 SpeakOptions.speed → playbackRate */
 const KOKORO_SYNTH_SPEED = 1.0;
 const DB_NAME = "ReadAloudTTS";
 const DB_STORE = "audio";
-const DB_VERSION = 2;
+/** 曾含音色前缀的缓存键已弃用，升级清空 */
+const DB_VERSION = 4;
 const CACHE_MAX = 100;
 
 type CacheEntry = { hex: string; format?: string; ts: number };
@@ -73,6 +76,9 @@ function openDB(): Promise<IDBDatabase> {
     req.onsuccess = () => resolve(req.result);
     req.onupgradeneeded = (e) => {
       const db = (e.target as IDBOpenDBRequest).result;
+      if (e.oldVersion < 4 && db.objectStoreNames.contains(DB_STORE)) {
+        db.deleteObjectStore(DB_STORE);
+      }
       if (!db.objectStoreNames.contains(DB_STORE)) {
         db.createObjectStore(DB_STORE, { keyPath: "key" });
       }
@@ -150,6 +156,12 @@ function playHexAudio(hex: string, playbackRate = 1, format?: string): Promise<v
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audio.playbackRate = playbackRate;
+      // 非 1× 时默认「保调」时间拉伸常让语音发闷、发虚；关闭后随语速自然变调，听感更接近真人
+      if (playbackRate !== 1) {
+        const a = audio as HTMLAudioElement & { preservesPitch?: boolean; webkitPreservesPitch?: boolean };
+        if ("preservesPitch" in a) a.preservesPitch = false;
+        if ("webkitPreservesPitch" in a) a.webkitPreservesPitch = false;
+      }
       currentAudio = audio;
 
       const cleanup = () => {
@@ -282,11 +294,13 @@ function splitIntoChunks(text: string): string[] {
 }
 
 /**
- * 预取音频到缓存（不播放），进入朗读页时调用可减少点击播放的等待
+ * 预取音频到缓存（不播放），进入朗读页时调用可减少点击播放的等待。
+ * 分块长文跳过：朗读会按块缓存，整段预取无法命中。
  */
 export async function prefetch(text: string): Promise<void> {
   const t = text.trim();
   if (!t || ttsDisabled) return;
+  if (splitIntoChunks(t).length > 1) return;
   const key = cacheKey(t);
   if (memoryCache.has(key)) return;
   try {
