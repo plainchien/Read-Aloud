@@ -34,6 +34,8 @@ let currentAudio: HTMLAudioElement | null = null;
 let rejectCurrentPlay: (() => void) | null = null;
 
 const memoryCache = new Map<string, CacheEntry>();
+/** 同一段文本并发 prefetch / speak 时只发一条网络请求 */
+const inFlightFetches = new Map<string, Promise<{ hex: string; format?: string }>>();
 
 function log(level: "info" | "warn" | "error", msg: string, extra?: unknown): void {
   const prefix = "[TTS]";
@@ -203,7 +205,7 @@ function playHexAudio(hex: string, playbackRate = 1, format?: string): Promise<v
   });
 }
 
-async function fetchFromAPI(text: string): Promise<{ hex: string; format?: string }> {
+async function fetchFromAPINetwork(text: string): Promise<{ hex: string; format?: string }> {
   log("info", "调用 Kokoro TTS 代理", {
     text: text.slice(0, 50) + (text.length > 50 ? "..." : ""),
   });
@@ -266,6 +268,18 @@ async function fetchFromAPI(text: string): Promise<{ hex: string; format?: strin
   }
 
   return { hex: bytesToHex(buf), format: "mp3" };
+}
+
+async function fetchFromAPI(text: string): Promise<{ hex: string; format?: string }> {
+  const key = cacheKey(text);
+  const existing = inFlightFetches.get(key);
+  if (existing) return existing;
+
+  const promise = fetchFromAPINetwork(text).finally(() => {
+    inFlightFetches.delete(key);
+  });
+  inFlightFetches.set(key, promise);
+  return promise;
 }
 
 /** 分块阈值，超长文本分块并行请求以加快首段播放 */
