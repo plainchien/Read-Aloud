@@ -3,6 +3,7 @@ import path from 'path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { kokoroTtsDevProxy } from './vite-plugin-kokoro-tts'
+import { publicApiDevProxy } from './vite-plugin-public-api'
 
 const useRemoteApiProxy = Boolean(process.env.VITE_API_BASE?.trim())
 
@@ -10,7 +11,7 @@ export default defineConfig({
   base: "/readaloud/",
   plugins: [
     // 纯 npm run dev：在 5173 上直接处理 TTS，无需 vercel dev；设 VITE_API_BASE 时改用下方 proxy
-    ...(useRemoteApiProxy ? [] : [kokoroTtsDevProxy()]),
+    ...(useRemoteApiProxy ? [] : [kokoroTtsDevProxy(), publicApiDevProxy()]),
     // The React and Tailwind plugins are both required for Make, even if
     // Tailwind is not being actively used – do not remove them
     react(),

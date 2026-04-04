@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { WordCard } from "./components/WordCard";
 import { fetchApi } from "../lib/fetchApi";
+import { siteApiUrl } from "../lib/siteApi";
 import { speak, stop as ttsStop, isDisabled as isTtsDisabled, prefetch } from "../lib/tts";
 
 const SAMPLE_TEXTS = [
@@ -263,8 +264,7 @@ export default function App() {
       }
       const results: string[] = [];
       for (const chunk of chunks) {
-        const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=en|zh`;
-        const res = await fetchApi(url);
+        const res = await fetchApi(siteApiUrl("api/translate-proxy", { q: chunk, langpair: "en|zh" }));
         const data = await res.json();
         results.push(data.responseData?.translatedText || "");
       }

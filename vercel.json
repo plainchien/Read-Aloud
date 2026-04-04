@@ -10,6 +10,8 @@
   "rewrites": [
     { "source": "/readaloud/assets/(.*)", "destination": "/assets/$1" },
     { "source": "/readaloud/api/tts-proxy", "destination": "/api/tts-proxy" },
+    { "source": "/readaloud/api/dictionary-proxy", "destination": "/api/dictionary-proxy" },
+    { "source": "/readaloud/api/translate-proxy", "destination": "/api/translate-proxy" },
     { "source": "/readaloud", "destination": "/index.html" },
     { "source": "/readaloud/", "destination": "/index.html" },
     { "source": "/readaloud/:path*", "destination": "/index.html" }
@@ -20,7 +22,15 @@
       "headers": [
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        {
+          "key": "Content-Security-Policy-Report-Only",
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self'; base-uri 'self'; form-action 'self'"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+        }
       ]
     }
   ]

@@ -1,17 +1,6 @@
 /**
- * Fetch with CORS fallback: try direct first, use proxy if blocked (file:// or CORS)
+ * 同源 / 已允许的 URL 请求；不再经第三方 CORS 代理（避免隐私与供应链风险）。
  */
 export async function fetchApi(url: string): Promise<Response> {
-  try {
-    return await fetch(url);
-  } catch {
-    // CORS or network error - use proxy
-  }
-  const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(url);
-  const res = await fetch(proxyUrl);
-  const text = await res.text();
-  return new Response(text, {
-    status: res.status,
-    headers: { "Content-Type": "application/json" },
-  });
+  return fetch(url);
 }

@@ -9,6 +9,8 @@
     "dev:vercel": "vercel dev"
   },
   "dependencies": {
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.37.0",
     "lucide-react": "^0.487.0",
     "no": "^0.0.1",
     "react": "^18.3.1",

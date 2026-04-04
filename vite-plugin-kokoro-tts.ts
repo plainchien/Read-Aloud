@@ -2,6 +2,9 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
 import { loadEnv } from "vite";
 import { fetchKokoroTtsAudio, kokoroUpstreamUrlFromEnv } from "./api/kokoro-forward";
+import { applyCors, headerOrigin, pickAllowedCorsOrigin } from "./api/cors";
+import { checkRateLimit, getClientIpFromHeaders } from "./api/rate-limit";
+import { validateTtsInput } from "./api/tts-limits";
 
 function isTtsProxyPath(pathname: string): boolean {
   return pathname === "/readaloud/api/tts-proxy" || pathname === "/api/tts-proxy";
@@ -33,9 +36,10 @@ export function kokoroTtsDevProxy(): Plugin {
 
         const env = { ...process.env, ...loadEnv(server.config.mode, process.cwd(), "") } as NodeJS.ProcessEnv;
         const sres = res as ServerResponse;
+        const origin = pickAllowedCorsOrigin(headerOrigin(req.headers as IncomingMessage["headers"]), env);
 
         if (req.method === "OPTIONS") {
-          sres.setHeader("Access-Control-Allow-Origin", "*");
+          applyCors(sres, origin);
           sres.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
           sres.setHeader("Access-Control-Allow-Headers", "Content-Type");
           sres.statusCode = 204;
@@ -53,6 +57,7 @@ export function kokoroTtsDevProxy(): Plugin {
 
         const apiKey = (env.KOKORO_API_KEY ?? "").trim();
         if (!apiKey) {
+          applyCors(sres, origin);
           sres.statusCode = 503;
           sres.setHeader("Content-Type", "application/json; charset=utf-8");
           sres.end(
@@ -78,9 +83,33 @@ export function kokoroTtsDevProxy(): Plugin {
             typeof body.speed === "number" && Number.isFinite(body.speed) ? body.speed : 1.0;
 
           if (!text) {
+            applyCors(sres, origin);
             sres.statusCode = 400;
             sres.setHeader("Content-Type", "application/json; charset=utf-8");
             sres.end(JSON.stringify({ error: "缺少 text 参数" }));
+            return;
+          }
+
+          const ip = getClientIpFromHeaders(req.headers);
+          if (!(await checkRateLimit(ip, "tts", env))) {
+            applyCors(sres, origin);
+            sres.statusCode = 429;
+            sres.setHeader("Content-Type", "application/json; charset=utf-8");
+            sres.end(
+              JSON.stringify({
+                error: "TTS_RATE_LIMIT",
+                message: "请求过于频繁，请稍后再试",
+              })
+            );
+            return;
+          }
+
+          const v = validateTtsInput(text);
+          if (!v.ok) {
+            applyCors(sres, origin);
+            sres.statusCode = 400;
+            sres.setHeader("Content-Type", "application/json; charset=utf-8");
+            sres.end(JSON.stringify({ error: v.error, message: v.message }));
             return;
           }
 
@@ -94,18 +123,20 @@ export function kokoroTtsDevProxy(): Plugin {
 
           if (!result.ok) {
             console.error("[vite dev tts] Space 响应错误", result.status, result.logBody);
+            applyCors(sres, origin);
             sres.statusCode = 502;
             sres.setHeader("Content-Type", "application/json; charset=utf-8");
             sres.end(JSON.stringify({ error: "UPSTREAM_ERROR", message: result.message }));
             return;
           }
 
+          applyCors(sres, origin);
           sres.statusCode = 200;
           sres.setHeader("Content-Type", "audio/mpeg");
-          sres.setHeader("Access-Control-Allow-Origin", "*");
           sres.end(Buffer.from(result.audio));
         } catch (e) {
           console.error("[vite dev tts] 代理错误", e);
+          applyCors(sres, origin);
           sres.statusCode = 500;
           sres.setHeader("Content-Type", "application/json; charset=utf-8");
           sres.end(JSON.stringify({ error: "TTS 服务暂时不可用" }));

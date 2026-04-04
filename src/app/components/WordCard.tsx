@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { X, Volume2, Loader2 } from "lucide-react";
 import { fetchApi } from "../../lib/fetchApi";
+import { siteApiUrl } from "../../lib/siteApi";
 
 interface DictionaryEntry {
   word: string;
@@ -42,7 +43,7 @@ export function WordCard({ word, onClose }: WordCardProps) {
     setError(false);
     setEntry(null);
     setZhDefinition("");
-    fetchApi(`https://api.dictionaryapi.dev/api/v2/entries/en/${cleanWord}`)
+    fetchApi(siteApiUrl("api/dictionary-proxy", { word: cleanWord }))
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) setEntry(data[0]);
@@ -55,7 +56,7 @@ export function WordCard({ word, onClose }: WordCardProps) {
   // Fetch concise Chinese definition
   useEffect(() => {
     if (!cleanWord) return;
-    fetchApi(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(cleanWord)}&langpair=en|zh`)
+    fetchApi(siteApiUrl("api/translate-proxy", { q: cleanWord, langpair: "en|zh" }))
       .then((r) => r.json())
       .then((data) => {
         const zh = data?.responseData?.translatedText?.trim();
