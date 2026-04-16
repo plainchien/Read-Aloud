@@ -36,21 +36,26 @@ async function readBodyWithLimit(res: Response, maxBytes: number): Promise<Array
 }
 
 function parseWithReadability(html: string, articleUrl: string): { title: string; text: string } {
-  const dom = new JSDOM(html, { url: articleUrl });
-  const doc = dom.window.document;
-  const reader = new Readability(doc);
-  const article = reader.parse();
-  if (article?.textContent?.trim()) {
+  try {
+    const dom = new JSDOM(html, { url: articleUrl });
+    const doc = dom.window.document;
+    const reader = new Readability(doc);
+    const article = reader.parse();
+    if (article?.textContent?.trim()) {
+      return {
+        title: (article.title ?? "").trim(),
+        text: article.textContent.trim(),
+      };
+    }
+    const bodyText = doc.body?.textContent?.trim() ?? "";
     return {
-      title: (article.title ?? "").trim(),
-      text: article.textContent.trim(),
+      title: (doc.title ?? "").trim(),
+      text: bodyText,
     };
+  } catch (e) {
+    console.error("[url-extract-core] Readability/JSDOM parse error", e);
+    throw new Error("PARSE_FAILED");
   }
-  const bodyText = doc.body?.textContent?.trim() ?? "";
-  return {
-    title: (doc.title ?? "").trim(),
-    text: bodyText,
-  };
 }
 
 /**

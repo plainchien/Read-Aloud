@@ -120,8 +120,13 @@ export async function checkRateLimit(
   const bucketKey = `${scope}:${ip}`;
   const limiter = await getUpstashLimiter(scope, env);
   if (limiter) {
-    const { success } = await limiter.limit(ip);
-    return success;
+    try {
+      const { success } = await limiter.limit(ip);
+      return success;
+    } catch (e) {
+      console.error("[rate-limit] Upstash limit() failed, using in-memory bucket", e);
+      return memoryAllow(bucketKey, max, windowSec * 1000);
+    }
   }
   return memoryAllow(bucketKey, max, windowSec * 1000);
 }

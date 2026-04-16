@@ -16,7 +16,15 @@ export const config = {
 const MAX_URL_LEN = 2048;
 
 function parseUrlFromBody(body: unknown): string | null {
-  if (!body || typeof body !== "object") return null;
+  if (body == null) return null;
+  if (typeof Buffer !== "undefined" && Buffer.isBuffer(body)) {
+    try {
+      return parseUrlFromBody(JSON.parse(body.toString("utf8")) as unknown);
+    } catch {
+      return null;
+    }
+  }
+  if (typeof body !== "object" || Array.isArray(body)) return null;
   const u = (body as { url?: unknown }).url;
   if (typeof u !== "string") return null;
   const t = u.trim();
@@ -41,49 +49,58 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
-  const ip = getClientIpFromHeaders(req.headers);
-  if (!(await checkRateLimit(ip, "urlExtract"))) {
-    applyCors(res, origin);
-    res.status(429).json({ error: "RATE_LIMIT", message: "请求过于频繁，请稍后再试" });
-    return;
-  }
-
-  let urlStr: string | null = parseUrlFromBody(req.body);
-  if (urlStr == null && typeof req.body === "string") {
-    try {
-      urlStr = parseUrlFromBody(JSON.parse(req.body) as unknown);
-    } catch {
-      urlStr = null;
-    }
-  }
-  if (urlStr == null) {
-    applyCors(res, origin);
-    res.status(400).json({
-      error: "INVALID_BODY",
-      message: "请提供有效的 url 字段（不超过 2048 字符）",
-    });
-    return;
-  }
-
   try {
-    const { title, text } = await extractArticleFromUrl(urlStr);
-    if (!text.trim()) {
+    const ip = getClientIpFromHeaders(req.headers);
+    if (!(await checkRateLimit(ip, "urlExtract"))) {
       applyCors(res, origin);
-      res.status(422).json({
-        error: "EMPTY_CONTENT",
-        message: "未能从页面提取正文",
+      res.status(429).json({ error: "RATE_LIMIT", message: "请求过于频繁，请稍后再试" });
+      return;
+    }
+
+    let urlStr: string | null = parseUrlFromBody(req.body);
+    if (urlStr == null && typeof req.body === "string") {
+      try {
+        urlStr = parseUrlFromBody(JSON.parse(req.body) as unknown);
+      } catch {
+        urlStr = null;
+      }
+    }
+    if (urlStr == null) {
+      applyCors(res, origin);
+      res.status(400).json({
+        error: "INVALID_BODY",
+        message: "请提供有效的 url 字段（不超过 2048 字符）",
       });
       return;
     }
-    applyCors(res, origin);
-    res.status(200).json({ title: title || "", text: text.trim() });
+
+    try {
+      const { title, text } = await extractArticleFromUrl(urlStr);
+      if (!text.trim()) {
+        applyCors(res, origin);
+        res.status(422).json({
+          error: "EMPTY_CONTENT",
+          message: "未能从页面提取正文",
+        });
+        return;
+      }
+      applyCors(res, origin);
+      res.status(200).json({ title: title || "", text: text.trim() });
+    } catch (e) {
+      const code = e instanceof Error ? e.message : "UNKNOWN";
+      console.error("[url-extract]", code, urlStr.slice(0, 120));
+      applyCors(res, origin);
+      res.status(400).json({
+        error: code,
+        message: mapUrlExtractErrorToMessage(code),
+      });
+    }
   } catch (e) {
-    const code = e instanceof Error ? e.message : "UNKNOWN";
-    console.error("[url-extract]", code, urlStr.slice(0, 120));
+    console.error("[url-extract] unhandled", e);
     applyCors(res, origin);
-    res.status(400).json({
-      error: code,
-      message: mapUrlExtractErrorToMessage(code),
+    res.status(500).json({
+      error: "INTERNAL",
+      message: "链接提取服务暂时不可用，请稍后再试",
     });
   }
 }

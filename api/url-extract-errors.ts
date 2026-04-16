@@ -12,6 +12,7 @@ export function mapUrlExtractErrorToMessage(code: string): string {
     BODY_TOO_LARGE: "页面体积过大",
     FETCH_TIMEOUT: "请求超时",
     FETCH_FAILED: "无法获取页面",
+    PARSE_FAILED: "无法解析页面内容",
     REDIRECT_NO_LOCATION: "重定向无效",
     TOO_MANY_REDIRECTS: "重定向次数过多",
   };
