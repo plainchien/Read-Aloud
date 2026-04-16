@@ -4,7 +4,7 @@
 
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
-import { assertUrlSafeForFetch } from "./url-ssrf";
+import { assertUrlSafeForFetch } from "./url-ssrf.js";
 
 const MAX_REDIRECTS = 5;
 const MAX_BODY_BYTES = 2_000_000;

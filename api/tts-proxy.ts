@@ -12,9 +12,9 @@
  */
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { applyCors, headerOrigin, pickAllowedCorsOrigin } from "./cors";
-import { checkRateLimit, getClientIpFromHeaders } from "./rate-limit";
-import { validateTtsInput } from "./tts-limits";
+import { applyCors, headerOrigin, pickAllowedCorsOrigin } from "./cors.js";
+import { checkRateLimit, getClientIpFromHeaders } from "./rate-limit.js";
+import { validateTtsInput } from "./tts-limits.js";
 
 /** Space 根路径往往 404；OpenAI 兼容语音接口一般在 /v1/audio/speech */
 const DEFAULT_TTS_URL =

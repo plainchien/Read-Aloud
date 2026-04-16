@@ -3,10 +3,10 @@
  */
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { applyCors, headerOrigin, pickAllowedCorsOrigin } from "./cors";
-import { checkRateLimit, getClientIpFromHeaders } from "./rate-limit";
-import { extractArticleFromUrl } from "./url-extract-core";
-import { mapUrlExtractErrorToMessage } from "./url-extract-errors";
+import { applyCors, headerOrigin, pickAllowedCorsOrigin } from "./cors.js";
+import { checkRateLimit, getClientIpFromHeaders } from "./rate-limit.js";
+import { extractArticleFromUrl } from "./url-extract-core.js";
+import { mapUrlExtractErrorToMessage } from "./url-extract-errors.js";
 
 export const config = {
   runtime: "nodejs",

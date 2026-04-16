@@ -6,15 +6,15 @@ import { Buffer } from "node:buffer";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
 import { loadEnv } from "vite";
-import { applyCors, headerOrigin, pickAllowedCorsOrigin } from "./api/cors";
+import { applyCors, headerOrigin, pickAllowedCorsOrigin } from "./api/cors.js";
 import {
   dictionaryUpstreamUrl,
   translateUpstreamUrl,
   validateDictionaryWord,
-} from "./api/external-fetch";
-import { checkRateLimit, getClientIpFromHeaders } from "./api/rate-limit";
-import { mapUrlExtractErrorToMessage } from "./api/url-extract-errors";
-import { extractArticleFromUrl } from "./api/url-extract-core";
+} from "./api/external-fetch.js";
+import { checkRateLimit, getClientIpFromHeaders } from "./api/rate-limit.js";
+import { mapUrlExtractErrorToMessage } from "./api/url-extract-errors.js";
+import { extractArticleFromUrl } from "./api/url-extract-core.js";
 
 function parseQuery(pathAndQuery: string): Record<string, string> {
   const i = pathAndQuery.indexOf("?");

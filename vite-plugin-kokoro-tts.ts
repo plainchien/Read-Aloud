@@ -1,10 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
 import { loadEnv } from "vite";
-import { fetchKokoroTtsAudio, kokoroUpstreamUrlFromEnv } from "./api/kokoro-forward";
-import { applyCors, headerOrigin, pickAllowedCorsOrigin } from "./api/cors";
-import { checkRateLimit, getClientIpFromHeaders } from "./api/rate-limit";
-import { validateTtsInput } from "./api/tts-limits";
+import { fetchKokoroTtsAudio, kokoroUpstreamUrlFromEnv } from "./api/kokoro-forward.js";
+import { applyCors, headerOrigin, pickAllowedCorsOrigin } from "./api/cors.js";
+import { checkRateLimit, getClientIpFromHeaders } from "./api/rate-limit.js";
+import { validateTtsInput } from "./api/tts-limits.js";
 
 function isTtsProxyPath(pathname: string): boolean {
   return pathname === "/readaloud/api/tts-proxy" || pathname === "/api/tts-proxy";

@@ -3,9 +3,9 @@
  */
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { applyCors, headerOrigin, pickAllowedCorsOrigin } from "./cors";
-import { checkRateLimit, getClientIpFromHeaders } from "./rate-limit";
-import { dictionaryUpstreamUrl, validateDictionaryWord } from "./external-fetch";
+import { applyCors, headerOrigin, pickAllowedCorsOrigin } from "./cors.js";
+import { checkRateLimit, getClientIpFromHeaders } from "./rate-limit.js";
+import { dictionaryUpstreamUrl, validateDictionaryWord } from "./external-fetch.js";
 
 export const config = {
   runtime: "nodejs",
