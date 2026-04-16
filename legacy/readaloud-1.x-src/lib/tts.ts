@@ -5,6 +5,8 @@
  * 失败时由调用方切换 Web Speech 兜底。
  */
 
+import { validateTtsInput } from "./tts-limits";
+
 /** 与 `vite.config` 的 `base` 对齐，避免部署在子路径时请求落到根 `/api` 导致 404 */
 const TTS_API_URL = `${import.meta.env.BASE_URL}api/tts-proxy`.replace(/\/{2,}/g, "/");
 /** Kokoro 固定音色（美式女声） */
@@ -206,6 +208,11 @@ function playHexAudio(hex: string, playbackRate = 1, format?: string): Promise<v
 }
 
 async function fetchFromAPINetwork(text: string): Promise<{ hex: string; format?: string }> {
+  const check = validateTtsInput(text);
+  if (!check.ok) {
+    throw new Error(check.message);
+  }
+
   log("info", "调用 Kokoro TTS 代理", {
     text: text.slice(0, 50) + (text.length > 50 ? "..." : ""),
   });
@@ -223,9 +230,38 @@ async function fetchFromAPINetwork(text: string): Promise<{ hex: string; format?
   const ct = (res.headers.get("content-type") || "").toLowerCase();
 
   if (res.status === 429) {
+    let ipRateLimited = false;
+    let rateMsg = "请求过于频繁，请稍后再试";
+    if (ct.includes("application/json")) {
+      try {
+        const data = (await res.json()) as { error?: string; message?: string };
+        if (data.error === "TTS_RATE_LIMIT") {
+          ipRateLimited = true;
+          rateMsg = (data.message || rateMsg) as string;
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    if (ipRateLimited) {
+      log("warn", "TTS IP 限流", rateMsg);
+      throw new Error(rateMsg);
+    }
     ttsDisabled = true;
     log("warn", "TTS 限流或用量超限，自动切换 Web Speech");
     throw new Error("TTS_QUOTA");
+  }
+
+  if (res.status === 400) {
+    if (ct.includes("application/json")) {
+      try {
+        const data = (await res.json()) as { error?: string; message?: string };
+        throw new Error((data.message || data.error || "请求无效") as string);
+      } catch (e) {
+        if (e instanceof Error) throw e;
+      }
+    }
+    throw new Error("请求无效");
   }
 
   if (res.status === 503) {
@@ -282,7 +318,9 @@ async function fetchFromAPI(text: string): Promise<{ hex: string; format?: strin
   return promise;
 }
 
-/** 分块阈值，超长文本分块并行请求以加快首段播放 */
+/**
+ * 分块阈值（须小于 tts-limits 单块上限）
+ */
 const CHUNK_SIZE = 350;
 
 function splitIntoChunks(text: string): string[] {
@@ -315,6 +353,8 @@ export async function prefetch(text: string): Promise<void> {
   const t = text.trim();
   if (!t || ttsDisabled) return;
   if (splitIntoChunks(t).length > 1) return;
+  const pre = validateTtsInput(t);
+  if (!pre.ok) return;
   const key = cacheKey(t);
   if (memoryCache.has(key)) return;
   try {
@@ -360,6 +400,10 @@ export async function speak(text: string, options: SpeakOptions = {}): Promise<v
 
   const opts = { ...DEFAULT_OPTIONS, ...options };
   const chunks = splitIntoChunks(t);
+  for (const c of chunks) {
+    const v = validateTtsInput(c);
+    if (!v.ok) throw new Error(v.message);
+  }
 
   if (chunks.length === 1) {
     const key = cacheKey(t);

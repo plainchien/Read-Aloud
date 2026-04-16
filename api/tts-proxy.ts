@@ -4,12 +4,17 @@
  * 环境变量：
  * - KOKORO_API_KEY（必填）
  * - KOKORO_TTS_URL（可选）完整上游 POST 地址
+ * - TTS_IP_RATE_LIMIT_MAX / TTS_IP_RATE_WINDOW_SEC（可选）
+ * - UPSTASH_REDIS_REST_*（可选）全局限流
+ * - TTS_CORS_ORIGINS（可选）逗号分隔的允许 Origin；未设则用 Vercel URL + localhost
  *
- * 说明：上游逻辑内联在本文件，避免 Vercel 打包时子模块解析失败导致 FUNCTION_INVOCATION_FAILED。
- * 开发环境 Vite 插件仍使用 `api/kokoro-forward.ts`，两处请保持请求体与默认 URL 一致。
+ * 说明：上游逻辑内联在本文件；校验逻辑在 `./tts-limits`（勿 import `src/`）。
  */
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { applyCors, headerOrigin, pickAllowedCorsOrigin } from "./cors";
+import { checkRateLimit, getClientIpFromHeaders } from "./rate-limit";
+import { validateTtsInput } from "./tts-limits";
 
 /** Space 根路径往往 404；OpenAI 兼容语音接口一般在 /v1/audio/speech */
 const DEFAULT_TTS_URL =
@@ -75,8 +80,10 @@ async function forwardToKokoro(opts: {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
+  const origin = pickAllowedCorsOrigin(headerOrigin(req.headers));
+
   if (req.method === "OPTIONS") {
-    res.setHeader("Access-Control-Allow-Origin", "*");
+    applyCors(res, origin);
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     res.status(204).end();
@@ -91,6 +98,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
   const apiKey = (process.env.KOKORO_API_KEY || "").trim();
   if (!apiKey) {
+    applyCors(res, origin);
     res.status(503).json({
       error: "TTS_DISABLED",
       message: "KOKORO_API_KEY 未配置",
@@ -105,7 +113,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     const speed = typeof body.speed === "number" && Number.isFinite(body.speed) ? body.speed : 1.0;
 
     if (!text) {
+      applyCors(res, origin);
       res.status(400).json({ error: "缺少 text 参数" });
+      return;
+    }
+
+    const ip = getClientIpFromHeaders(req.headers);
+    if (!(await checkRateLimit(ip, "tts"))) {
+      applyCors(res, origin);
+      res.status(429).json({
+        error: "TTS_RATE_LIMIT",
+        message: "请求过于频繁，请稍后再试",
+      });
+      return;
+    }
+
+    const v = validateTtsInput(text);
+    if (!v.ok) {
+      applyCors(res, origin);
+      res.status(400).json({ error: v.error, message: v.message });
       return;
     }
 
@@ -113,6 +139,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
     if (!result.ok) {
       console.error("[tts-proxy] Space 响应错误", result.status, result.logBody);
+      applyCors(res, origin);
       res.status(502).json({
         error: "UPSTREAM_ERROR",
         message: result.message,
@@ -122,12 +149,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
     const buf = Buffer.from(result.audio);
 
+    applyCors(res, origin);
     res.setHeader("Content-Type", "audio/mpeg");
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    // 部分环境下 res.status().send(Buffer) 不可用，用 end 更稳妥
     res.status(200).end(buf);
   } catch (error) {
     console.error("[tts-proxy] TTS 代理错误:", error);
+    applyCors(res, origin);
     res.status(500).json({ error: "TTS 服务暂时不可用" });
   }
 }

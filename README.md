@@ -2,13 +2,16 @@
 
 移动端优先的响应式网页，支持英文文本朗读、翻译、单词查词。
 
+**ReadAloud 2.0**：主界面已合并至仓库根目录 `src/`（原独立子目录 `readaloud-home-ui` 已移除）。旧版前端完整备份见 **`legacy/readaloud-1.x-src/`**，说明见 [`legacy/README.md`](legacy/README.md)。开发分支：`feature/readaloud2.0`。
+
 ## 功能
 
 - 输入/粘贴英文文本
 - 整句朗读：**Kokoro TTS**（经同域 **`/readaloud/api/tts-proxy`** → Vercel 函数转发至 Hugging Face Space；密钥用环境变量 **`KOKORO_API_KEY`**，可选 **`KOKORO_TTS_URL`** 覆盖上游地址）。失败或未配置时自动降级 **Web Speech**
 - 朗读时逐词高亮（仅在走 **Web Speech** 兜底时有效；Kokoro 播放为整段音频无逐词边界）
-- 点击单词查看音标与释义（Free Dictionary API）
-- 中文翻译（MyMemory API）
+- 点击单词查看音标与释义（经同域 **`/readaloud/api/dictionary-proxy`** 转发 Free Dictionary API）
+- 中文翻译（经同域 **`/readaloud/api/translate-proxy`** 转发 MyMemory）
+- **安全**：TTS / 词典 / 翻译均限额流与输入校验；密钥仅服务端；详见 [`SECURITY.md`](SECURITY.md)（`TTS_CORS_ORIGINS`、Preview/Production 密钥、`CSP-Report-Only` 等）
 - 倍速 **0.75× / 1× / 1.5×**（播放端 `playbackRate`）；音频缓存（IndexedDB + 内存）减少重复请求
 
 

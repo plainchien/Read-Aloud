@@ -1,7 +1,7 @@
 {
   "name": "read-aloud",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "module",
   "scripts": {
     "build": "vite build",
@@ -9,21 +9,26 @@
     "dev:vercel": "vercel dev"
   },
   "dependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.37.0",
+    "jsdom": "^29.0.2",
     "lucide-react": "^0.487.0",
-    "no": "^0.0.1",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tesseract.js": "^5.1.1"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.1.12",
-    "@types/node": "^20.0.0",
-    "@types/react": "18.3.12",
-    "@types/react-dom": "18.3.1",
+    "@tailwindcss/vite": "^4.2.2",
+    "@types/jsdom": "^28.0.1",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
     "@vercel/node": "^5.6.20",
-    "@vitejs/plugin-react": "^4.7.0",
-    "tailwindcss": "^4.1.12",
-    "typescript": "^5.6.0",
+    "@vitejs/plugin-react": "^6.0.1",
+    "tailwindcss": "^4.2.2",
+    "typescript": "~5.7.0",
     "vercel": "^41.4.1",
-    "vite": "^6.3.5"
+    "vite": "^8.0.4"
   }
 }
