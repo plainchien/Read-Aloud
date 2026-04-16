@@ -2,6 +2,8 @@
 
 移动端优先的响应式网页，支持英文文本朗读、翻译、单词查词。
 
+**ReadAloud 2.0**：主界面已合并至仓库根目录 `src/`（原独立子目录 `readaloud-home-ui` 已移除）。旧版前端完整备份见 **`legacy/readaloud-1.x-src/`**，说明见 [`legacy/README.md`](legacy/README.md)。开发分支：`feature/readaloud2.0`。
+
 ## 功能
 
 - 输入/粘贴英文文本

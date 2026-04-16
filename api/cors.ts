@@ -13,7 +13,12 @@ export function parseAllowedOriginsFromEnv(env: NodeJS.ProcessEnv = process.env)
   if (raw) {
     return [...new Set(raw.split(",").map((s) => s.trim()).filter(Boolean))];
   }
-  const out: string[] = ["http://localhost:5173", "http://127.0.0.1:5173"];
+  const out: string[] = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+  ];
   if (env.VERCEL_URL) out.push(`https://${env.VERCEL_URL}`);
   if (env.VERCEL_BRANCH_URL) out.push(`https://${env.VERCEL_BRANCH_URL}`);
   const prod = env.VERCEL_PROJECT_PRODUCTION_URL?.trim();

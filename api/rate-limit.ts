@@ -1,9 +1,10 @@
 /**
- * 按 IP 滑动窗口限流（多命名空间：tts / dictionary / translate）
+ * 按 IP 滑动窗口限流（多命名空间：tts / dictionary / translate / urlExtract）
  *
  * 可选 Upstash：UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN
  * TTS：TTS_IP_RATE_LIMIT_MAX（默认 30）、TTS_IP_RATE_WINDOW_SEC（默认 60）
  * 词典/翻译：PUBLIC_API_RATE_LIMIT_MAX（默认 60）、PUBLIC_API_RATE_WINDOW_SEC（默认 60）
+ * 链接抽正文：URL_EXTRACT_IP_RATE_LIMIT_MAX（默认 15）、URL_EXTRACT_IP_RATE_WINDOW_SEC（默认 60）
  */
 
 import type { IncomingHttpHeaders } from "node:http";
@@ -14,7 +15,7 @@ const globalStore = globalThis as typeof globalThis & {
   __readaloudRateBuckets?: Map<string, number[]>;
 };
 
-export type RateLimitScope = "tts" | "dictionary" | "translate";
+export type RateLimitScope = "tts" | "dictionary" | "translate" | "urlExtract";
 
 function getEnvInt(key: string, fallback: number, env: NodeJS.ProcessEnv): number {
   const v = env[key];
@@ -52,6 +53,12 @@ function limitParams(scope: RateLimitScope, env: NodeJS.ProcessEnv): { max: numb
       windowSec: getEnvInt("TTS_IP_RATE_WINDOW_SEC", 60, env),
     };
   }
+  if (scope === "urlExtract") {
+    return {
+      max: getEnvInt("URL_EXTRACT_IP_RATE_LIMIT_MAX", 15, env),
+      windowSec: getEnvInt("URL_EXTRACT_IP_RATE_WINDOW_SEC", 60, env),
+    };
+  }
   return {
     max: getEnvInt("PUBLIC_API_RATE_LIMIT_MAX", 60, env),
     windowSec: getEnvInt("PUBLIC_API_RATE_WINDOW_SEC", 60, env),
@@ -62,7 +69,7 @@ function memoryAllow(bucketKey: string, max: number, windowMs: number): boolean 
   const buckets = globalStore.__readaloudRateBuckets ?? (globalStore.__readaloudRateBuckets = new Map());
   const now = Date.now();
   const arr = buckets.get(bucketKey) ?? [];
-  const pruned = arr.filter((t) => now - t < windowMs);
+  const pruned = arr.filter((t: number) => now - t < windowMs);
   if (pruned.length >= max) {
     buckets.set(bucketKey, pruned);
     return false;
