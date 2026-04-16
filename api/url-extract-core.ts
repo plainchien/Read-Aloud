@@ -3,7 +3,7 @@
  */
 
 import { Readability } from "@mozilla/readability";
-import { JSDOM } from "jsdom";
+import { parseHTML } from "linkedom";
 import { assertUrlSafeForFetch } from "./url-ssrf.js";
 
 const MAX_REDIRECTS = 5;
@@ -37,8 +37,8 @@ async function readBodyWithLimit(res: Response, maxBytes: number): Promise<Array
 
 function parseWithReadability(html: string, articleUrl: string): { title: string; text: string } {
   try {
-    const dom = new JSDOM(html, { url: articleUrl });
-    const doc = dom.window.document;
+    const win = parseHTML(html, { url: articleUrl });
+    const doc = win.document;
     const reader = new Readability(doc);
     const article = reader.parse();
     if (article?.textContent?.trim()) {
@@ -53,7 +53,7 @@ function parseWithReadability(html: string, articleUrl: string): { title: string
       text: bodyText,
     };
   } catch (e) {
-    console.error("[url-extract-core] Readability/JSDOM parse error", e);
+    console.error("[url-extract-core] Readability/linkedom parse error", e);
     throw new Error("PARSE_FAILED");
   }
 }
