@@ -1,4 +1,4 @@
-import { publicUrl } from '../lib/publicUrl'
+import { historyUrl, linkUrl, scanUrl } from '../lib/brandAssetUrls'
 
 type ActionGridProps = {
   onHistoryClick: () => void
@@ -26,7 +26,7 @@ export function ActionGrid({
         onClick={onScanClick}
         className="flex h-[60px] flex-row items-center justify-center gap-2 rounded-ios-squircle border border-[#ECECEC] bg-[#FFFFFF] px-2 text-ios-label disabled:cursor-wait disabled:opacity-60"
       >
-        <img src={publicUrl('brand/scan.svg')} alt="" className="size-5 shrink-0" width={24} height={24} />
+        <img src={scanUrl} alt="" className="size-5 shrink-0" width={24} height={24} />
         <span className="text-[16px] font-semibold">{scanBusy ? '识别中…' : '扫描'}</span>
       </button>
       <button
@@ -34,7 +34,7 @@ export function ActionGrid({
         onClick={onLinkClick}
         className="flex h-[60px] flex-row items-center justify-center gap-2 rounded-ios-squircle border border-[#ECECEC] bg-[#FFFFFF] px-2 text-ios-label"
       >
-        <img src={publicUrl('brand/link.svg')} alt="" className="size-5 shrink-0" width={24} height={24} />
+        <img src={linkUrl} alt="" className="size-5 shrink-0" width={24} height={24} />
         <span className="text-[16px] font-semibold">链接</span>
       </button>
       <button
@@ -43,7 +43,7 @@ export function ActionGrid({
         onClick={onHistoryClick}
         className="flex h-[60px] flex-row items-center justify-center gap-2 rounded-ios-squircle border border-[#ECECEC] bg-[#FFFFFF] px-2 text-ios-label disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <img src={publicUrl('brand/history.svg')} alt="" className="size-5 shrink-0" width={24} height={24} />
+        <img src={historyUrl} alt="" className="size-5 shrink-0" width={24} height={24} />
         <span className="text-[16px] font-semibold">历史</span>
       </button>
     </div>

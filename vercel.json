@@ -9,6 +9,9 @@
   ],
   "rewrites": [
     { "source": "/readaloud/assets/(.*)", "destination": "/assets/$1" },
+    { "source": "/readaloud/brand/(.*)", "destination": "/brand/$1" },
+    { "source": "/readaloud/favicon.svg", "destination": "/favicon.svg" },
+    { "source": "/readaloud/icons.svg", "destination": "/icons.svg" },
     { "source": "/readaloud/api/tts-proxy", "destination": "/api/tts-proxy" },
     { "source": "/readaloud/api/dictionary-proxy", "destination": "/api/dictionary-proxy" },
     { "source": "/readaloud/api/translate-proxy", "destination": "/api/translate-proxy" },
