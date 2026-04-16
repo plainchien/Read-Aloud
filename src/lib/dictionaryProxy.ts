@@ -1,9 +1,10 @@
 /**
  * 与主工程 WordCard 一致：GET `/api/dictionary-proxy`（dictionaryapi.dev）
  */
+import { apiPath } from './apiPath'
 import { cleanEnglishWord } from './translateProxy'
 
-const DICTIONARY_PROXY = '/api/dictionary-proxy'
+const DICTIONARY_PROXY = apiPath('/api/dictionary-proxy')
 
 export type DictionaryEntry = {
   word: string

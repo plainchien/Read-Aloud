@@ -1,7 +1,9 @@
 /**
  * 调用主工程 `/api/url-extract`（开发时由 Vite 代理到主应用 dev 服务器）
  */
-const URL_EXTRACT = '/api/url-extract'
+import { apiPath } from './apiPath'
+
+const URL_EXTRACT = apiPath('/api/url-extract')
 
 export async function fetchUrlExtractText(url: string): Promise<{ title: string; text: string }> {
   const u = url.trim()

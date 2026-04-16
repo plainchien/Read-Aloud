@@ -1,7 +1,9 @@
 /**
  * 与主工程 WordCard 一致：同域 GET `/api/translate-proxy`（MyMemory en→zh）
  */
-const TRANSLATE_PROXY = '/api/translate-proxy'
+import { apiPath } from './apiPath'
+
+const TRANSLATE_PROXY = apiPath('/api/translate-proxy')
 
 export function cleanEnglishWord(raw: string): string {
   return raw.replace(/[^a-zA-Z'-]/g, '').toLowerCase()

@@ -2,9 +2,10 @@
  * 调用与主工程同构的 `/api/tts-proxy`（开发时由 Vite 代理到主应用 dev 服务器）
  * speed=1 时读写本地分块缓存（与朗读管线一致）。
  */
+import { apiPath } from './apiPath'
 import { getCachedTtsChunk, putCachedTtsChunk } from './ttsCache'
 
-const TTS_URL = '/api/tts-proxy'
+const TTS_URL = apiPath('/api/tts-proxy')
 
 export async function fetchTtsAudio(text: string, voice: string, speed = 1): Promise<ArrayBuffer> {
   const t = text.trim()
