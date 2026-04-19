@@ -15,18 +15,18 @@ export function PrimaryTtsButton({
       type="button"
       onClick={onClick}
       aria-busy={busy}
-      className={`flex h-[60px] w-full items-center justify-center gap-1.5 rounded-ios-squircle bg-black text-[16px] font-semibold ${
+      className={`flex h-[50px] w-full items-center justify-center gap-1.5 rounded-ios-squircle bg-black text-[16px] font-semibold ${
         busy ? 'pointer-events-none' : ''
       }`}
     >
       {busy ? (
         <span className="shiny-tts-icon" aria-hidden />
       ) : (
-        <span className="tts-generate-icon-static" aria-hidden />
+        <span className="tts-generate-icon-on-dark" aria-hidden />
       )}
       <span
         className={
-          busy ? 'shiny-tts-text font-semibold' : 'tts-label-gradient font-semibold'
+          busy ? 'shiny-tts-text font-semibold' : 'font-semibold text-[#FFFFFF]'
         }
       >
         {busy ? '生成中...' : '文本转语音'}

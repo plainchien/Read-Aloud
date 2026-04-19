@@ -35,7 +35,7 @@ export function ReadHeader({
       <button
         type="button"
         onClick={onBack}
-        className="flex size-9 shrink-0 items-center justify-center rounded-full bg-ios-secondary text-ios-label"
+        className="read-header-glass-btn"
         aria-label="返回"
       >
         <ChevronLeft className="size-5" strokeWidth={2} />
@@ -45,7 +45,7 @@ export function ReadHeader({
         <button
           type="button"
           onClick={() => onFeedbackOpenChange(!feedbackOpen)}
-          className="flex size-9 items-center justify-center rounded-full bg-ios-secondary text-ios-label"
+          className="read-header-glass-btn"
           aria-expanded={feedbackOpen}
           aria-haspopup="dialog"
           aria-label="更多"

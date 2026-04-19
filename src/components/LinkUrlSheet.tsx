@@ -62,7 +62,7 @@ export function LinkUrlSheet({ open, onClose, onApply }: LinkUrlSheetProps) {
           value={url}
           disabled={busy}
           onChange={(e) => setUrl(e.target.value)}
-          className="w-full rounded-xl border border-[#E5E5EA] bg-white px-3 py-2.5 text-[15px] text-ios-label outline-none placeholder:text-[#8e8e93] focus:border-[#0099e6]"
+          className="w-full rounded-xl border border-[#E5E5EA] bg-white px-3 py-2.5 text-base text-ios-label outline-none placeholder:text-[#8e8e93] focus:border-[#0099e6]"
         />
         {error ? (
           <p className="text-[13px] text-red-600" role="alert">

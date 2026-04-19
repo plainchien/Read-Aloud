@@ -30,7 +30,7 @@ export function BottomSheet({ open, title, onClose, children }: BottomSheetProps
       />
       <div className="relative flex max-h-[85vh] flex-col rounded-t-[1.25rem] bg-ios-bg shadow-[0_-8px_40px_rgb(0_0_0/0.12)]">
         <div className="flex shrink-0 flex-col items-center pt-2 pb-1">
-          <div className="h-1 w-10 rounded-full bg-ios-secondary" aria-hidden />
+          <div className="h-[5px] w-[100px] rounded-full bg-ios-secondary" aria-hidden />
         </div>
         <div className="shrink-0 px-5 pb-3 pt-0">
           <h2 className="text-center text-[16px] font-semibold text-ios-label">

@@ -137,8 +137,17 @@ function splitWithIntlSegmenter(text: string): string[] {
     .filter(Boolean)
 }
 
+/**
+ * 扫描/OCR 常在行尾插入换行，但语义上仍是同一句。
+ * `Intl.Segmenter` 等会把换行当作边界，导致一句被拆成多段。
+ * 分句前把换行展成空格，再压缩空白。
+ */
+function normalizeNewlinesForSentenceSplit(text: string): string {
+  return text.replace(/\r\n/g, '\n').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
 export function splitSentencesByPeriod(text: string): string[] {
-  const t = text.trim()
+  const t = normalizeNewlinesForSentenceSplit(text)
   if (!t) return []
 
   let parts: string[]

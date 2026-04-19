@@ -1,50 +1,71 @@
+import { Loader2 } from 'lucide-react'
 import { historyUrl, linkUrl, scanUrl } from '../lib/brandAssetUrls'
+import { VoiceOrbIcon } from './VoiceOrbIcon'
 
 type ActionGridProps = {
+  voiceId: string
+  onVoiceClick: () => void
   onHistoryClick: () => void
-  /** 无历史记录时禁用「历史」按钮（视觉变浅） */
   historyDisabled?: boolean
-  /** 点击「扫描」：由父组件触发隐藏 file input */
   onScanClick: () => void
   onLinkClick: () => void
-  /** 扫描识别中 */
   scanBusy?: boolean
 }
 
 export function ActionGrid({
+  voiceId,
+  onVoiceClick,
   onHistoryClick,
   historyDisabled = false,
   onScanClick,
   onLinkClick,
   scanBusy = false,
 }: ActionGridProps) {
+  const voiceLabel = `Voice ${voiceId}`
+
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className="glass-container">
+      <button
+        type="button"
+        onClick={onVoiceClick}
+        className="glass-btn glass-btn-pill"
+        title={voiceLabel}
+      >
+        <VoiceOrbIcon voiceId={voiceId} className="h-6 w-6 shrink-0" />
+        <span className="glass-btn-text">{voiceLabel}</span>
+      </button>
+
       <button
         type="button"
         disabled={scanBusy}
         onClick={onScanClick}
-        className="flex h-[60px] flex-row items-center justify-center gap-2 rounded-ios-squircle border border-[#ECECEC] bg-[#FFFFFF] px-2 text-ios-label disabled:cursor-wait disabled:opacity-60"
+        className="glass-btn glass-btn-square disabled:cursor-wait disabled:opacity-70"
+        aria-label={scanBusy ? '识别中' : '扫描'}
       >
-        <img src={scanUrl} alt="" className="size-5 shrink-0" width={24} height={24} />
-        <span className="text-[16px] font-semibold">{scanBusy ? '识别中…' : '扫描'}</span>
+        {scanBusy ? (
+          <Loader2 className="size-6 animate-spin text-ios-label" aria-hidden />
+        ) : (
+          <img src={scanUrl} alt="" className="size-6" width={24} height={24} />
+        )}
       </button>
+
       <button
         type="button"
         onClick={onLinkClick}
-        className="flex h-[60px] flex-row items-center justify-center gap-2 rounded-ios-squircle border border-[#ECECEC] bg-[#FFFFFF] px-2 text-ios-label"
+        className="glass-btn glass-btn-square"
+        aria-label="链接"
       >
-        <img src={linkUrl} alt="" className="size-5 shrink-0" width={24} height={24} />
-        <span className="text-[16px] font-semibold">链接</span>
+        <img src={linkUrl} alt="" className="size-6" width={24} height={24} />
       </button>
+
       <button
         type="button"
         disabled={historyDisabled}
         onClick={onHistoryClick}
-        className="flex h-[60px] flex-row items-center justify-center gap-2 rounded-ios-squircle border border-[#ECECEC] bg-[#FFFFFF] px-2 text-ios-label disabled:cursor-not-allowed disabled:opacity-50"
+        className="glass-btn glass-btn-square disabled:cursor-not-allowed disabled:opacity-50"
+        aria-label="历史"
       >
-        <img src={historyUrl} alt="" className="size-5 shrink-0" width={24} height={24} />
-        <span className="text-[16px] font-semibold">历史</span>
+        <img src={historyUrl} alt="" className="size-6" width={24} height={24} />
       </button>
     </div>
   )

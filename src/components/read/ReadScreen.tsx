@@ -14,11 +14,19 @@ type ReadScreenProps = {
   text: string
   voiceId: string
   onBack: () => void
+  /** 打开音色选择（与首页共用 VoicePickerSheet） */
+  onOpenVoicePicker: () => void
   /** 朗读成功并开始播放后写入本地历史（与缓存、预取同步） */
   onAddToHistory?: (text: string) => void
 }
 
-export function ReadScreen({ text, voiceId, onBack, onAddToHistory }: ReadScreenProps) {
+export function ReadScreen({
+  text,
+  voiceId,
+  onBack,
+  onOpenVoicePicker,
+  onAddToHistory,
+}: ReadScreenProps) {
   const sentences = useMemo(() => splitSentencesByPeriod(text), [text])
   const title = useMemo(() => {
     const t = text.trim()
@@ -107,7 +115,7 @@ export function ReadScreen({ text, voiceId, onBack, onAddToHistory }: ReadScreen
   }, [sentences, translations])
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-ios-bg">
+    <div className="flex min-h-0 flex-1 flex-col bg-white">
       <div className="shrink-0 pt-1">
         <ReadHeader
           title={title}
@@ -161,6 +169,8 @@ export function ReadScreen({ text, voiceId, onBack, onAddToHistory }: ReadScreen
           onSpeedClick={() => setSpeedOpen(true)}
           onSeek={setProgress}
           disabled={!ready || !!ttsError || preparing}
+          voiceId={voiceId}
+          onVoiceClick={onOpenVoicePicker}
         />
       </div>
 

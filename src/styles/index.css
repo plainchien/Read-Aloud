@@ -91,6 +91,142 @@
 }
 
 @layer components {
+  /* 首页工具行：玻璃按钮（参考 glass-container / glass-btn 写法） */
+  .glass-container {
+    display: flex;
+    align-items: stretch;
+    gap: 0.5rem;
+    min-height: 50px;
+  }
+
+  .glass-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 0;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    background: rgb(255 255 255 / 0.6);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgb(255 255 255 / 0.7);
+    border-radius: 40px;
+    transition: background 0.3s ease, transform 0.3s ease;
+  }
+
+  .glass-btn:hover:not(:disabled) {
+    background: rgb(255 255 255 / 0.8);
+    transform: translateY(-2px);
+  }
+
+  .glass-btn:focus-visible {
+    outline: 2px solid rgb(0 153 230 / 0.45);
+    outline-offset: 2px;
+  }
+
+  .glass-btn:disabled {
+    cursor: not-allowed;
+  }
+
+  /* 左侧音色按钮：与方钮一致 20px 圆角 */
+  .glass-btn-pill {
+    flex: 1;
+    min-width: 0;
+    min-height: 50px;
+    padding: 0 12px;
+    gap: 12px;
+    border-radius: 20px;
+  }
+
+  /* 右侧图标：square（50×50，圆角与行高调一致） */
+  .glass-btn-square {
+    width: 50px;
+    height: 50px;
+    flex-shrink: 0;
+    padding: 0;
+    border-radius: 20px;
+  }
+
+  .voice-avatar {
+    display: block;
+    object-fit: cover;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+  }
+
+  .glass-btn-text {
+    min-width: 0;
+    flex: 1;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--color-ios-label);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* 朗读页顶栏：与首页玻璃同材质，圆形、轻阴影 */
+  .read-header-glass-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    margin: 0;
+    padding: 0;
+    cursor: pointer;
+    color: var(--color-ios-label);
+    background: rgb(255 255 255 / 0.6);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgb(255 255 255 / 0.7);
+    border-radius: 50%;
+    box-shadow: 0 2px 10px rgb(0 0 0 / 0.06);
+    transition: background 0.3s ease, transform 0.3s ease;
+  }
+
+  .read-header-glass-btn:hover {
+    background: rgb(255 255 255 / 0.8);
+    transform: translateY(-1px);
+  }
+
+  .read-header-glass-btn:focus-visible {
+    outline: 2px solid rgb(0 153 230 / 0.45);
+    outline-offset: 2px;
+  }
+
+  /* 朗读页：翻译/循环/大字通栏 + 播放器 — 与首页玻璃同系 */
+  .read-glass-panel {
+    background: rgb(255 255 255 / 0.55);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgb(255 255 255 / 0.65);
+    box-shadow: 0 2px 14px rgb(0 0 0 / 0.07);
+  }
+
+  /* 文本转语音主按钮：白色图标（mask） */
+  .tts-generate-icon-on-dark {
+    display: inline-block;
+    flex-shrink: 0;
+    width: 1rem;
+    height: 1rem;
+    background: #ffffff;
+    -webkit-mask-image: url('../assets/brand/generate.svg');
+    mask-image: url('../assets/brand/generate.svg');
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+  }
+
   /* 朗读页进度条：细轨道 + 小圆点拖块 */
   .read-player-range {
     -webkit-appearance: none;
@@ -145,8 +281,10 @@
     overflow: hidden;
     overscroll-behavior: none;
     font-family: var(--font-sans);
-    background: var(--color-ios-bg);
     color: var(--color-ios-label);
+    background: #ffffff;
+    /* 减轻部分浏览器双击缩放；配合表单 ≥16px 避免整页被放大 */
+    touch-action: manipulation;
   }
 
   /* 单屏壳：避免键盘顶起后整页被撑高 */
@@ -154,5 +292,33 @@
     height: 100%;
     max-height: 100%;
     overflow: hidden;
+    background: transparent;
+  }
+
+  /* 仅首页：上白、下暖色弥散；底部椭圆收窄，左右两侧更浅 */
+  .home-ambient-bg {
+    background-color: #ffffff;
+    background-image:
+      linear-gradient(
+        to right,
+        rgb(255 255 255 / 0.72) 0%,
+        rgb(255 255 255 / 0) 14%,
+        rgb(255 255 255 / 0) 86%,
+        rgb(255 255 255 / 0.72) 100%
+      ),
+      radial-gradient(
+        ellipse 36% 78% at 50% 100%,
+        rgb(255 236 230 / 0.5) 0%,
+        rgb(255 241 235 / 0.16) 46%,
+        transparent 64%
+      ),
+      linear-gradient(
+        to bottom,
+        #ffffff 0%,
+        #ffffff 47%,
+        #fffdfc 58%,
+        #fff7f3 78%,
+        #fff2ec 100%
+      );
   }
 }

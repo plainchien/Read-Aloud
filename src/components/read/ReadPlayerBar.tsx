@@ -1,3 +1,6 @@
+import { VoiceOrbIcon } from '../VoiceOrbIcon'
+import { PlayIcon } from '../PlayIcon'
+
 type ReadPlayerBarProps = {
   /** 0–1 进度 */
   progress: number
@@ -10,6 +13,10 @@ type ReadPlayerBarProps = {
   onSeek?: (ratio: number) => void
   /** 语音未就绪或出错时禁用播放与进度条 */
   disabled?: boolean
+  /** 当前音色 id，用于圆点颜色 */
+  voiceId: string
+  /** 打开音色列表 */
+  onVoiceClick: () => void
 }
 
 function formatTime(sec: number): string {
@@ -17,20 +24,6 @@ function formatTime(sec: number): string {
   const m = Math.floor(s / 60)
   const r = s % 60
   return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`
-}
-
-/** 黑色填充 + 圆角轮廓（无描边），与常见 solid 播放键一致 */
-function PlayFilled({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden>
-      <path
-        fill="currentColor"
-        fillRule="evenodd"
-        d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z"
-        clipRule="evenodd"
-      />
-    </svg>
-  )
 }
 
 /** 纯黑色圆角矩形（与播放三角同 24 视窗、同 size-9） */
@@ -59,9 +52,11 @@ export function ReadPlayerBar({
   onSpeedClick,
   onSeek,
   disabled = false,
+  voiceId,
+  onVoiceClick,
 }: ReadPlayerBarProps) {
   return (
-    <div className="w-full rounded-[1.25rem] bg-ios-bg p-2 shadow-[0_4px_24px_rgb(0_0_0/0.08)]">
+    <div className="read-glass-panel w-full rounded-[1.25rem] p-2">
       <div className="flex items-center gap-2">
         <span className="w-10 shrink-0 text-[11px] tabular-nums text-ios-secondary-label">
           {formatTime(currentSec)}
@@ -83,13 +78,14 @@ export function ReadPlayerBar({
       </div>
 
       <div className="mt-2.5 grid grid-cols-3 items-center gap-1 px-0.5">
-        <div className="justify-self-start">
-          <div
-            className="size-8 rounded-full bg-ios-secondary"
-            aria-hidden
-            title="音色"
-          />
-        </div>
+        <button
+          type="button"
+          onClick={onVoiceClick}
+          className="justify-self-start rounded-full p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(0_153_230/0.45)]"
+          aria-label="选择音色"
+        >
+          <VoiceOrbIcon voiceId={voiceId} className="size-[30px] shrink-0" />
+        </button>
         <button
           type="button"
           disabled={disabled}
@@ -100,13 +96,13 @@ export function ReadPlayerBar({
           {isPlaying ? (
             <PauseFilled className="size-9" />
           ) : (
-            <PlayFilled className="ml-0.5 size-9" />
+            <PlayIcon className="ml-1 h-[26px] w-auto" />
           )}
         </button>
         <button
           type="button"
           onClick={onSpeedClick}
-          className="justify-self-end min-w-0 text-right text-[17px] font-semibold tabular-nums leading-none text-ios-label"
+          className="justify-self-end min-w-0 text-right text-[20.4px] font-semibold tabular-nums leading-none text-ios-label"
         >
           {speed.toFixed(1)}×
         </button>

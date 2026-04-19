@@ -9,16 +9,23 @@ export type KokoroVoice = {
   region: string
 }
 
-/** 英文常用音色子集（美式 + 英式），便于朗读英文文本 */
-export const KOKORO_VOICES: KokoroVoice[] = [
+/** 首页 / 朗读页可选的 6 种音色 */
+export const VOICE_OPTIONS_HOME: KokoroVoice[] = [
   { id: 'af_heart', name: 'Heart', region: 'American' },
   { id: 'af_bella', name: 'Bella', region: 'American' },
+  { id: 'am_fenrir', name: 'Fenrir', region: 'American' },
+  { id: 'am_michael', name: 'Michael', region: 'American' },
+  { id: 'bf_emma', name: 'Emma', region: 'British' },
+  { id: 'bm_fable', name: 'Fable', region: 'British' },
+]
+
+/** 全量列表（含历史/兼容旧 id 查找） */
+export const KOKORO_VOICES: KokoroVoice[] = [
+  ...VOICE_OPTIONS_HOME,
   { id: 'af_nicole', name: 'Nicole', region: 'American' },
   { id: 'af_sarah', name: 'Sarah', region: 'American' },
   { id: 'af_sky', name: 'Sky', region: 'American' },
-  { id: 'am_michael', name: 'Michael', region: 'American' },
   { id: 'am_adam', name: 'Adam', region: 'American' },
-  { id: 'bf_emma', name: 'Emma', region: 'British' },
   { id: 'bf_isabella', name: 'Isabella', region: 'British' },
   { id: 'bm_george', name: 'George', region: 'British' },
   { id: 'bm_lewis', name: 'Lewis', region: 'British' },

@@ -157,7 +157,7 @@ export function ReadContent({
               }}
               className={`flex w-full max-w-full cursor-pointer appearance-none flex-col border-0 px-0 py-1 text-left outline-none ${innerGap} rounded-[10px] ${
                 isActive
-                  ? 'bg-[#E9F4FF]'
+                  ? 'bg-[#FAF5F2]'
                   : 'hover:bg-[rgb(60_60_67/0.05)]'
               } focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[rgb(0_153_230/0.45)]`}
             >
