@@ -10,5 +10,6 @@ const VOICES_WITH_AVATAR = new Set([
 
 export function getVoiceAvatarSrc(voiceId: string): string {
   const slug = VOICES_WITH_AVATAR.has(voiceId) ? voiceId : 'af_heart'
-  return `${import.meta.env.BASE_URL}voice-avatars/${slug}.png`
+  const base = import.meta.env.BASE_URL.replace(/\/?$/, '/')
+  return `${base}voice-avatars/${slug}.png`
 }
